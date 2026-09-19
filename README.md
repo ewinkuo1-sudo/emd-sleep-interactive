@@ -44,6 +44,8 @@ EMD、Hilbert 轉換、FFT、三次樣條、紡錘波偵測全部以 vanilla Jav
 
 查得到的最直接證據鏈在 [Hou et al. 2018](https://www.frontiersin.org/journals/neuroscience/articles/10.3389/fnins.2018.00809/full)：該篇用 EEMD 量化睡眠慢波活動，方法段寫著「The MATLAB code for EEMD was shared by RCADA」——RCADA 正是黃鍔在中央大學創立的資料分析研究中心。**方法是透過釋出的程式碼流進睡眠研究的，不是透過他掛名論文。**
 
+（`rcada.ncu.edu.tw` 該站 2026-09-19 實測已離線，但 [Internet Archive 的 2019-01-29 存檔](https://web.archive.org/web/20190129064758/http://rcada.ncu.edu.tw/research1.htm)還在，頁面上確實列著「HHT MATLAB program」與「Fast EMD/EEMD Code」的下載連結。）
+
 ---
 
 ## 演算法實作

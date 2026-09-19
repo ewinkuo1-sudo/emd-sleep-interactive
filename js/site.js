@@ -74,7 +74,8 @@
       '<div class="inner">' +
       '<p><strong>本網站由人與 AI 協作完成。</strong>作者：Ewin Kuo（陽明交通大學 生醫光電研究所）。' +
       'EMD／Hilbert 轉換／FFT 的演算法程式碼由 vanilla JavaScript 從頭實作，' +
-      '並以合成訊號驗證（<code>test/test-emd.mjs</code>，44 項檢查全數通過）。' +
+      '並以成分已知的合成訊號驗證（<code>node test/test-emd.mjs</code> 44 項＋' +
+      '<code>node test/test-spindle.mjs</code> 6 項，共 50 項全數通過）。' +
       'AI（Claude）參與了程式碼撰寫、文獻搜尋與文案潤飾；文獻連結皆經實際開啟確認，' +
       '未找到的內容一律標示「未找到」而非臆測。</p>' +
       '<p style="color:var(--text-muted)">課程作業 · 為 2026-09-24 黃鍔院士演講預備 · ' +
