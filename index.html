@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>為什麼需要 EMD — EMD × 睡眠訊號互動教學</title>
+<meta name="description" content="用可互動的例子說明：為什麼傅立葉轉換分析睡眠 EEG 這種非線性、非穩態訊號會失真，而經驗模態分解（EMD）能自適應地抓到真正的成分。">
+<link rel="stylesheet" href="css/style.css">
+<script src="js/site.js"></script>
+</head>
+<body>
+<main>
+
+  <h1>為什麼需要 EMD？</h1>
+  <p class="lead">
+    傅立葉轉換假設訊號是<strong>線性</strong>而且<strong>穩態</strong>的——由一組振幅固定、頻率固定、永遠存在的正弦波疊加而成。
+    可是睡眠中的腦波不是這樣。紡錘波（sleep spindle）只出現半秒到兩秒，K-複合波（K-complex）是單次的瞬變事件，
+    慢波的頻率會隨睡眠深度漂移。把這種訊號丟進 FFT，得到的是一個「整段時間的平均」，
+    事件發生在什麼時候、當下的頻率是多少，全部被抹平。
+  </p>
+  <p class="lead">
+    黃鍔（Norden E. Huang）院士在 1998 年提出的<strong>經驗模態分解（Empirical Mode Decomposition, EMD）</strong>
+    走的是相反的路：<strong>不預設任何基底函數</strong>，直接從資料本身的局部極值把訊號拆成幾層
+    「本徵模態函數」（Intrinsic Mode Function, IMF），每一層都可以有隨時間變化的振幅與頻率。
+  </p>
+
+  <div class="note">
+    <p><strong>這個網站在做什麼：</strong>底下每一張圖都是你的瀏覽器<em>當場算出來</em>的，
+    不是預錄的動畫或截圖。EMD、Hilbert 轉換、FFT 全部用 vanilla JavaScript 從頭實作，
+    程式碼在 <a href="https://github.com/ewinkuo1-sudo/emd-sleep-interactive/tree/main/js">js/</a>。
+    你可以改參數、改訊號，看演算法怎麼反應。</p>
+  </div>
+
+  <!-- ============================================ 示範 1 -->
+  <h2 id="demo1">示範一：兩個頻率疊在一起</h2>
+  <p>
+    先從 FFT 最擅長的情況開始：一個 1 Hz 的大波加上一個 12 Hz 的小波，兩者振幅、頻率都不隨時間改變。
+    這是<strong>穩態</strong>訊號，FFT 表現完美——頻譜上乾淨地站著兩根峰。
+    EMD 也不遑多讓：它把訊號拆成兩層 IMF，一層 12 Hz、一層 1 Hz。
+  </p>
+
+  <div class="controls" role="group" aria-label="示範一參數">
+    <div class="ctrl">
+      <label for="d1f1">低頻 f₁ <span class="val" id="d1f1v">1.0</span> Hz</label>
+      <input type="range" id="d1f1" min="0.5" max="4" step="0.1" value="1">
+    </div>
+    <div class="ctrl">
+      <label for="d1f2">高頻 f₂ <span class="val" id="d1f2v">12.0</span> Hz</label>
+      <input type="range" id="d1f2" min="5" max="30" step="0.5" value="12">
+    </div>
+    <div class="ctrl">
+      <label for="d1a2">高頻振幅 a₂ <span class="val" id="d1a2v">0.50</span></label>
+      <input type="range" id="d1a2" min="0.1" max="1.5" step="0.05" value="0.5">
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <figure class="figure">
+      <div class="chart-wrap"><canvas id="d1-sig" aria-label="雙頻合成訊號的時域波形"></canvas></div>
+      <div class="legend" id="d1-sig-legend"></div>
+      <figcaption>時域波形。看得出來是一個慢波「駝」著一串小漣漪。</figcaption>
+    </figure>
+    <figure class="figure">
+      <div class="chart-wrap"><canvas id="d1-fft" aria-label="雙頻合成訊號的 FFT 振幅頻譜"></canvas></div>
+      <div class="legend" id="d1-fft-legend"></div>
+      <figcaption>FFT 振幅頻譜。兩根尖峰，位置與振幅都正確。<strong>穩態訊號 FFT 沒有問題。</strong></figcaption>
+    </figure>
+  </div>
+
+  <figure class="figure">
+    <div id="d1-imfs"></div>
+    <div class="legend" id="d1-imf-legend"></div>
+    <figcaption>EMD 分解結果。IMF 依頻率由高到低排出來，最後剩下的是殘餘趨勢（residue）。
+      每張圖右上角是該層用 Hilbert 轉換估計的平均瞬時頻率。</figcaption>
+  </figure>
+
+  <div class="card" id="d1-verify"></div>
+
+  <!-- ============================================ 示範 2 -->
+  <h2 id="demo2">示範二：頻率會變的訊號（chirp）</h2>
+  <p>
+    現在換成一個頻率<strong>隨時間線性上升</strong>的掃頻訊號（chirp），從 2 Hz 爬到 25 Hz。
+    這是最單純的非穩態訊號——它在任何一個瞬間都只有一個頻率，只是那個頻率一直在變。
+  </p>
+  <p>
+    FFT 會怎麼回答？它只能說：「這段訊號裡 2 到 25 Hz 之間都有能量。」——一片糊掉的高原，
+    <strong>完全看不出頻率是怎麼隨時間走的</strong>。這不是 FFT 算錯，是它的模型（固定頻率的正弦波）
+    本來就無法表達「頻率會變」這件事，只好用一整排不同頻率的分量去拼湊。
+  </p>
+
+  <div class="grid-2">
+    <figure class="figure">
+      <div class="chart-wrap"><canvas id="d2-sig" aria-label="chirp 掃頻訊號的時域波形"></canvas></div>
+      <figcaption>Chirp 時域波形：波越往右擠得越密。</figcaption>
+    </figure>
+    <figure class="figure">
+      <div class="chart-wrap"><canvas id="d2-fft" aria-label="chirp 訊號的 FFT 振幅頻譜"></canvas></div>
+      <figcaption><strong>FFT 的回答：一片高原。</strong>2–25 Hz 全部都有能量，
+        但「什麼時候是哪個頻率」的資訊完全消失了。</figcaption>
+    </figure>
+  </div>
+
+  <figure class="figure">
+    <div class="chart-wrap"><canvas id="d2-hht" aria-label="chirp 訊號的 Hilbert 時頻譜"></canvas></div>
+    <figcaption><strong>EMD + Hilbert 的回答：一條乾淨的斜線。</strong>
+      EMD 把整個 chirp 收進單一層 IMF（能量佔比 &gt; 99%），再用 Hilbert 轉換算出每個時刻的瞬時頻率，
+      直接畫出「頻率隨時間上升」這件事。色階代表該時刻該頻率的能量（對數壓縮）。
+      兩端的偏差是<strong>端點效應</strong>——EMD 的已知弱點之一，在
+      <a href="limits.html">EMD 的極限</a>有完整說明。</figcaption>
+  </figure>
+
+  <figure class="figure">
+    <div class="chart-wrap"><canvas id="d2-if" aria-label="chirp 的瞬時頻率曲線與理論值比較"></canvas></div>
+    <div class="legend" id="d2-if-legend"></div>
+    <figcaption>把瞬時頻率單獨畫出來跟理論值比。中間段幾乎完全重合；
+      前後各約 10% 因端點效應而偏離。</figcaption>
+  </figure>
+
+  <!-- ============================================ 核心對照 -->
+  <h2 id="contrast">一句話的差別</h2>
+  <div class="grid-2">
+    <div class="card">
+      <h3 style="margin-top:0">傅立葉轉換</h3>
+      <p>把訊號投影到<strong>事先選定</strong>的一組基底（固定頻率的正弦波）上。</p>
+      <ul>
+        <li>基底是<strong>先驗</strong>的，跟資料無關</li>
+        <li>每個分量的振幅、頻率<strong>在整段時間內固定</strong></li>
+        <li>要描述「一個 0.8 秒的紡錘波」，得用很多個永遠存在的正弦波互相抵銷來拼</li>
+        <li>數學基礎完備，有唯一解、有收斂定理</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">經驗模態分解</h3>
+      <p>從<strong>資料自己的局部極值</strong>出發，一層層剝掉最快的振盪。</p>
+      <ul>
+        <li>基底是<strong>後驗</strong>的，每筆資料拆出來的 IMF 都不一樣</li>
+        <li>每層 IMF 的振幅、頻率<strong>都可以隨時間變</strong></li>
+        <li>紡錘波就是某一層 IMF 在那 0.8 秒裡振幅變大，很直接</li>
+        <li>沒有嚴格的數學基礎——是演算法定義的，不是解析式定義的</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="note warn">
+    <p><strong>不要把這頁讀成「EMD 打敗 FFT」。</strong>
+    穩態訊號上 FFT 又快又準又有理論保證，EMD 反而是繞遠路。
+    EMD 的價值只在一個地方：<strong>當訊號本質上非線性、非穩態，而你需要知道「什麼時候發生了什麼」的時候。</strong>
+    睡眠 EEG 恰好就是這種訊號。EMD 本身也有一堆麻煩——
+    mode mixing、端點效應、停止準則靠經驗——這些在
+    <a href="limits.html">EMD 的極限</a>整頁講清楚，不藏。</p>
+  </div>
+
+  <h2>接下來</h2>
+  <div class="grid-3">
+    <div class="card">
+      <h3 style="margin-top:0"><a href="emd.html">互動演算法 →</a></h3>
+      <p style="margin:0">一步一步跑 sifting：看極值點、上下包絡、均值曲線怎麼互動，可調停止準則與迭代上限。</p>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0"><a href="sleep.html">睡眠應用 →</a></h3>
+      <p style="margin:0">把 IMF 對應到 delta／theta／alpha／spindle，並實際比較「固定濾波器組」與「EMD 自適應分解」。</p>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0"><a href="papers.html">論文導讀 →</a></h3>
+      <p style="margin:0">EMD 原始論文、HHSA、睡眠分期與紡錘波偵測的實際研究，每篇都附可點的真實連結。</p>
+    </div>
+  </div>
+
+</main>
+
+<script src="js/dsp.js"></script>
+<script src="js/emd.js"></script>
+<script src="js/signals.js"></script>
+<script src="js/plot.js"></script>
+<script src="js/page-home.js"></script>
+</body>
+</html>

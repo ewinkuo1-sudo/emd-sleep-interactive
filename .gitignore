@@ -1,0 +1,18 @@
+# 開發過程產生的截圖（headless Chromium 自測用），不進版控
+.shots/
+
+# 編輯器 / 作業系統
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# 如果日後真的引入 Node 相依（目前刻意不使用）
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# 注意：本專案刻意「不」放 package.json。
+# Zeabur 的 zbpack 會依 package.json 判定為 Node.js 專案並嘗試 build，
+# 那會破壞純靜態部署。測試用 `node test/*.mjs` 直接跑，不需要任何相依套件。

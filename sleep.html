@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>睡眠應用：IMF 與睡眠分期頻段 — EMD × 睡眠訊號互動教學</title>
+<meta name="description" content="把 EMD 拆出的 IMF 對應到睡眠分期的 EEG 頻段（delta、theta、alpha、紡錘波、K-複合波），並實際比較固定頻帶濾波與 EMD 自適應分解的差別。">
+<link rel="stylesheet" href="css/style.css">
+<script src="js/site.js"></script>
+</head>
+<body>
+<main>
+
+  <h1>睡眠應用：為什麼 EMD 適合睡眠訊號</h1>
+  <p class="lead">
+    這一頁把前兩頁的演算法接到真正的問題上：睡眠腦波。
+    先講清楚睡眠分期看的是什麼，再實際跑一次「固定頻帶濾波 vs EMD 自適應分解」的對照，
+    最後用 Hilbert-Huang 轉換做一個真的會跑的紡錘波偵測器。
+  </p>
+
+  <div class="note warn">
+    <p><strong>先說清楚資料來源。</strong>本頁使用的睡眠 EEG 是<strong>依 AASM 判讀特徵合成的模擬訊號</strong>，
+    不是真實的多項生理睡眠檢查（PSG）紀錄。原因是公開 PSG 資料集（Sleep-EDF、MASS 等）
+    有授權與檔案體積的限制，不適合直接放進靜態網頁。
+    合成訊號的每個成分（頻率、振幅、出現時間）都是已知的，
+    <strong>好處是可以拿來驗證演算法有沒有算對</strong>——這頁下半部的紡錘波偵測就是這樣驗的。
+    但它<strong>不能用來宣稱任何關於真實人類睡眠的結論</strong>。</p>
+  </div>
+
+  <!-- ============================================ 分期 -->
+  <h2 id="stages">1. 睡眠分期與它們的 EEG 特徵</h2>
+  <p>
+    依照美國睡眠醫學會（AASM）的判讀規則，整夜睡眠被切成 30 秒一段的 epoch，每段判給一個分期。
+    判讀依據幾乎都是「某個頻段的能量」或「某種波形事件」：
+  </p>
+
+  <div class="table-scroll">
+  <table class="data">
+    <caption class="sr-only">睡眠分期與對應的 EEG 頻段特徵</caption>
+    <thead><tr><th>分期</th><th>主要 EEG 特徵</th><th>關鍵頻段</th><th>本質</th></tr></thead>
+    <tbody>
+      <tr><td><strong>W</strong> 清醒</td><td>閉眼時枕區出現 alpha 節律；睜眼時低振幅混合頻率</td><td>alpha 8–13 Hz</td><td>持續性節律</td></tr>
+      <tr><td><strong>N1</strong> 淺睡期</td><td>alpha 消退到 &lt;50%，theta 為主；可能有頂尖波（vertex sharp wave）</td><td>theta 4–8 Hz</td><td>持續性節律 + 瞬變</td></tr>
+      <tr><td><strong>N2</strong></td><td><strong>睡眠紡錘波（sleep spindle）</strong>與 <strong>K-複合波（K-complex）</strong></td><td>紡錘波 11–16 Hz<br>K-複合波 &lt;1 Hz 的尖銳瞬變</td><td><strong>短暫事件</strong></td></tr>
+      <tr><td><strong>N3</strong> 深睡／慢波睡眠</td><td>高振幅慢波佔該 epoch &gt;20%（峰對峰 &gt;75 µV）</td><td>delta 0.5–4 Hz</td><td>大振幅持續節律</td></tr>
+      <tr><td><strong>REM</strong></td><td>低振幅混合頻率、鋸齒波（sawtooth wave）、快速眼動、肌張力低下</td><td>theta 為主<br>鋸齒波 2–6 Hz</td><td>混合 + 瞬變</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>
+    注意最右欄。<strong>判讀 N2 靠的是「事件」而不是「頻段平均能量」</strong>——
+    紡錘波是一段 0.5 到 2 秒的叢發，K-複合波是單次瞬變。
+    把整個 30 秒 epoch 做一次 FFT，這兩個事件會被平均掉。
+    這正是把 EMD 帶進睡眠分析的第一個動機。
+  </p>
+
+  <!-- ============================================ 固定濾波 vs EMD -->
+  <h2 id="compare">2. 固定頻帶濾波 vs EMD 自適應分解</h2>
+  <p>
+    傳統的睡眠 EEG 分析用<strong>固定濾波器組</strong>：把訊號分別通過 delta、theta、alpha、sigma、beta 五個
+    帶通濾波器，再算每個頻帶的功率。頻帶邊界是<strong>查表查來的固定數字</strong>。
+    EMD 則不預設任何邊界，直接從資料的極值結構切分。下面把兩種作法跑在同一段訊號上對照。
+  </p>
+
+  <div class="controls" role="group" aria-label="睡眠訊號設定">
+    <div class="ctrl">
+      <label for="stageSel">睡眠分期（模擬訊號）</label>
+      <select id="stageSel">
+        <option value="W">W — 清醒（alpha 為主）</option>
+        <option value="N1">N1 — 淺睡（theta 為主）</option>
+        <option value="N2" selected>N2 — 紡錘波 + K-複合波</option>
+        <option value="N3">N3 — 深睡（delta 慢波）</option>
+        <option value="REM">REM — 低振幅混合頻率</option>
+      </select>
+    </div>
+    <div class="ctrl">
+      <label for="viewSel">顯示方式</label>
+      <div class="seg" id="viewSel" role="group" aria-label="切換顯示方式">
+        <button type="button" data-v="both" aria-pressed="true">並排對照</button>
+        <button type="button" data-v="filt" aria-pressed="false">只看固定濾波</button>
+        <button type="button" data-v="emd" aria-pressed="false">只看 EMD</button>
+      </div>
+    </div>
+  </div>
+
+  <figure class="figure">
+    <div class="chart-wrap"><canvas id="rawCv" aria-label="原始模擬睡眠 EEG 波形"></canvas></div>
+    <figcaption id="rawCap"></figcaption>
+  </figure>
+
+  <div class="grid-2" id="compareGrid">
+    <div id="filtCol">
+      <h3>固定頻帶濾波器組</h3>
+      <p style="font-size:0.9rem;color:var(--text-secondary)">
+        五個零相位 FIR 帶通濾波器（Hamming 窗，401 階，前後各卷積一次抵銷相位）。
+        邊界是固定的，跟這筆資料長什麼樣子完全無關。
+      </p>
+      <div id="filtStack"></div>
+    </div>
+    <div id="emdCol">
+      <h3>EMD 自適應分解</h3>
+      <p style="font-size:0.9rem;color:var(--text-secondary)">
+        沒有任何預設頻帶。IMF 的數量與各層的頻率，
+        <strong>完全由這筆資料自己的極值分布決定</strong>。
+      </p>
+      <div id="emdStack"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">IMF ↔ 頻段對應表</h3>
+    <p style="font-size:0.9rem;color:var(--text-secondary);margin-top:0">
+      把每層 IMF 的 Hilbert 平均瞬時頻率丟進標準頻段表，看它落在哪一格。
+      <strong>注意：這是事後對應，不是事前設定。</strong>
+      同一個受試者、不同的 30 秒 epoch，對應關係可能不一樣——這既是 EMD 的優點（貼合資料），
+      也是它的麻煩（跨 epoch 不好直接比較，因為 IMF 編號沒有固定意義）。
+    </p>
+    <div class="table-scroll"><table class="data" id="mapTable"></table></div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <h3 style="margin-top:0">固定濾波器組的四個問題</h3>
+      <ol class="steps" style="font-size:0.94rem">
+        <li><strong>邊界是人訂的。</strong>alpha 是 8–13 Hz、紡錘波是 11–16 Hz——這兩段<strong>重疊</strong>。
+          一個 12 Hz 的成分到底算 alpha 還是紡錘波，濾波器不知道，它只會把它同時送進兩個輸出。</li>
+        <li><strong>個體差異被忽略。</strong>個人 alpha 頻率（individual alpha frequency）在 8–13 Hz 之間因人而異，
+          紡錘波也分慢紡錘波（~12 Hz，額區）與快紡錘波（~14 Hz，頂區）。固定邊界對每個人一視同仁。</li>
+        <li><strong>瞬變事件會產生鈴振（ringing）。</strong>K-複合波是一個接近階躍的尖銳瞬變，
+          通過窄帶濾波器後會變成一串持續好幾個週期的振盪——那是濾波器的脈衝響應，不是生理訊號。</li>
+        <li><strong>線性假設。</strong>帶通濾波是線性運算，隱含「訊號是各頻率分量的線性疊加」。
+          腦波的產生機制（神經元群同步、跨頻率耦合）不是線性的。</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">EMD 對應的回答（以及它自己的代價）</h3>
+      <ol class="steps" style="font-size:0.94rem">
+        <li><strong>沒有邊界要訂。</strong>分界點由訊號自己的極值密度決定，12 Hz 的成分會整個落在某一層 IMF 裡，
+          不會被切成兩半。<span class="tag warn">代價</span> 但你事先不知道它會落在第幾層。</li>
+        <li><strong>自動適應個體。</strong>受試者的 alpha 在 9 Hz 還是 12 Hz，EMD 都會抓出來，不必先調參數。
+          <span class="tag warn">代價</span> 不同受試者的 IMF 3 不代表同一件事，群體統計會變麻煩。</li>
+        <li><strong>瞬變就是瞬變。</strong>K-複合波在 IMF 上就是一次大振幅偏移，不會被拉長成鈴振。
+          <span class="tag warn">代價</span> 但一個孤立的瞬變會造成 <strong>mode mixing</strong>——
+          它會把同一層 IMF 的頻率在那個時間點整個拉走。</li>
+        <li><strong>不假設線性。</strong>每層 IMF 的振幅與頻率都允許隨時間變，可以直接描述調幅／調頻現象。
+          <span class="tag warn">代價</span> 換來的是完全沒有理論保證——收斂性、唯一性、雜訊敏感度全都只有實驗結果，
+          沒有定理。詳見 <a href="limits.html">EMD 的極限</a>。</li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- ============================================ Hilbert 譜 -->
+  <h2 id="hht">3. 同一段訊號的兩種時頻表示</h2>
+  <p>
+    左邊是短時傅立葉轉換（STFT）的時頻圖，右邊是 Hilbert-Huang 時頻譜。
+    STFT 受<strong>測不準原理</strong>約束：窗開得短，時間解析度好但頻率解析度差；窗開得長則相反。
+    HHT 沒有窗，瞬時頻率是逐點定義的，所以時間解析度等於取樣率。
+  </p>
+  <div class="grid-2">
+    <figure class="figure">
+      <div class="chart-wrap"><canvas id="stftCv" aria-label="短時傅立葉轉換時頻圖"></canvas></div>
+      <figcaption id="stftCap"></figcaption>
+    </figure>
+    <figure class="figure">
+      <div class="chart-wrap"><canvas id="hhtCv" aria-label="Hilbert-Huang 時頻譜"></canvas></div>
+      <figcaption>Hilbert-Huang 時頻譜。沒有時間窗，每個取樣點都有自己的瞬時頻率。
+        代價是：只有「已經被分進某層 IMF」的成分才畫得出來，而分層本身可能出錯。</figcaption>
+    </figure>
+  </div>
+
+  <!-- ============================================ 紡錘波偵測 -->
+  <h2 id="spindle">4. 實作：用 HHT 偵測睡眠紡錘波</h2>
+  <p>
+    這一節是整個網站裡最接近實際研究的部分。演算法骨架沿用 HHT 系列文獻的共同作法
+    （見<a href="papers.html">論文導讀</a>的 Chen et al. 2006 與 Li et al. 2010）：
+  </p>
+  <ol class="steps">
+    <li>EMD 把 EEG 拆成 IMF。</li>
+    <li>每層 IMF 做 Hilbert 轉換，得到瞬時振幅 <code>A(t)</code> 與瞬時頻率 <code>f(t)</code>。</li>
+    <li>挑出「瞬時頻率落在 11–16 Hz 的能量」最大的那層 IMF。</li>
+    <li>在該層找出「平滑振幅 &gt; 門檻」且「平滑頻率在帶內」且「持續 ≥ 0.5 秒」的區段。</li>
+  </ol>
+  <p>
+    門檻用<strong>中位數 + K × 標準差</strong>。用中位數而不是平均數，是因為紡錘波本身會把平均拉高，
+    造成「訊號越強反而越難偵測」的自我抵銷。
+  </p>
+
+  <div class="controls" role="group" aria-label="紡錘波偵測參數">
+    <div class="ctrl">
+      <label for="spK">門檻係數 K <span class="val" id="spKv">1.5</span></label>
+      <input type="range" id="spK" min="0.4" max="3.0" step="0.1" value="1.5">
+    </div>
+    <div class="ctrl">
+      <label for="spMin">最短持續時間 <span class="val" id="spMinv">0.50</span> s</label>
+      <input type="range" id="spMin" min="0.2" max="1.5" step="0.05" value="0.5">
+    </div>
+    <div class="ctrl">
+      <label for="spB0">頻帶下限 <span class="val" id="spB0v">11.0</span> Hz</label>
+      <input type="range" id="spB0" min="8" max="13" step="0.5" value="11">
+    </div>
+    <div class="ctrl">
+      <label for="spB1">頻帶上限 <span class="val" id="spB1v">16.0</span> Hz</label>
+      <input type="range" id="spB1" min="14" max="20" step="0.5" value="16">
+    </div>
+  </div>
+
+  <div class="card" id="spResult"></div>
+
+  <figure class="figure">
+    <div class="chart-wrap"><canvas id="spSig" aria-label="原始訊號與偵測到的紡錘波位置"></canvas></div>
+    <div class="legend" id="spSigLegend"></div>
+    <figcaption>原訊號，底色標出真值（合成時放的紡錘波）與偵測結果。</figcaption>
+  </figure>
+
+  <figure class="figure">
+    <div class="chart-wrap"><canvas id="spEnv" aria-label="選中 IMF 的瞬時振幅包絡與偵測門檻"></canvas></div>
+    <div class="legend" id="spEnvLegend"></div>
+    <figcaption>被選中那層 IMF 的瞬時振幅包絡與門檻線。偵測就是在這條曲線上找「超過門檻夠久」的區段。</figcaption>
+  </figure>
+
+  <figure class="figure">
+    <div class="chart-wrap"><canvas id="spFreq" aria-label="選中 IMF 的平滑瞬時頻率"></canvas></div>
+    <div class="legend" id="spFreqLegend"></div>
+    <figcaption>同一層 IMF 的瞬時頻率（振幅平方加權後平滑 0.2 秒）。
+      紡錘波期間頻率穩定落在帶內；其他時間因為該層只剩雜訊，頻率會亂跳到 25–35 Hz。
+      <strong>這個「亂跳」本身就是有用的特徵</strong>——它告訴你那段時間該層沒有真正的振盪。</figcaption>
+  </figure>
+
+  <div class="note">
+    <p><strong>自己調參數看看敏感度與特異度怎麼互換：</strong></p>
+    <ul style="margin:0.4rem 0 0">
+      <li><strong>K 降到 0.6</strong>：N2 的兩個紡錘波都抓得到，但切到 <strong>W 期會出現一個誤判</strong>——
+        清醒期的 10 Hz alpha 偶爾飄進帶內就被當成紡錘波。這是真實世界最主要的誤判來源之一。</li>
+      <li><strong>K 升到 2.0 以上</strong>：誤判歸零，但第二個（振幅較小的）紡錘波會漏掉。</li>
+      <li><strong>把頻帶下限拉到 8 Hz</strong>：等於把 alpha 也納進來，W 期會開始大量誤判。
+        這示範了「alpha 與紡錘波頻率相鄰」為什麼是個真問題。</li>
+      <li><strong>最短持續時間降到 0.2 s</strong>：會開始撿到雜訊造成的短暫振幅尖峰。
+        AASM 規定紡錘波必須 ≥ 0.5 秒，正是為了排除這些。</li>
+    </ul>
+  </div>
+
+  <div class="note crit">
+    <p><strong>這個偵測器能證明什麼、不能證明什麼。</strong></p>
+    <p>能證明的：HHT 的流程可以跑通，而且在<strong>成分已知</strong>的訊號上，
+    能把事先放進去的兩個叢發找回來，頻率估計誤差 &lt; 2 Hz，並且不會把 K-複合波誤判成紡錘波。
+    這代表程式碼本身沒寫錯。</p>
+    <p style="margin-bottom:0">不能證明的：<strong>它在真實 PSG 上的表現</strong>。
+    真實紀錄有肌電雜訊、眼動假影、電極接觸不良、個體間頻率差異、以及判讀者之間本身就不一致
+    （人類判讀者對紡錘波的一致性 Cohen's κ 大約只有 0.5–0.6）。
+    要宣稱臨床效能，必須在 MASS 或 DREAMS 這類有專家標註的公開資料集上評估，本作業沒有做到這一步。</p>
+  </div>
+
+  <h2>小結：EMD 在睡眠研究裡的定位</h2>
+  <p>
+    黃鍔院士本人的主線工作是<strong>方法學</strong>——EMD（1998）、EEMD（2009）、
+    Holo-Hilbert 譜分析（2016）都是通用的資料分析方法，不是為睡眠設計的。
+    睡眠是這套方法的<strong>下游應用之一</strong>，主要由其他研究團隊推進
+    （詳見<a href="papers.html">論文導讀</a>，該頁也誠實說明了「找不到黃鍔本人以睡眠為題的代表作」這件事）。
+  </p>
+  <p>
+    這個分工其實說明了為什麼 EMD 會被拿來做睡眠：
+    睡眠 EEG 剛好同時具備 EMD 宣稱要解決的<strong>全部三個特性</strong>——
+    非穩態（分期會轉換）、非線性（神經元群的同步機制）、含短暫事件（紡錘波、K-複合波）。
+    它是這套方法的天然試金石。
+  </p>
+
+</main>
+
+<script src="js/dsp.js"></script>
+<script src="js/emd.js"></script>
+<script src="js/signals.js"></script>
+<script src="js/spindle.js"></script>
+<script src="js/plot.js"></script>
+<script src="js/page-sleep.js"></script>
+</body>
+</html>

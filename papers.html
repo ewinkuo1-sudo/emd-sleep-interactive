@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>論文導讀 — EMD × 睡眠訊號互動教學</title>
+<meta name="description" content="EMD 原始論文、EEMD、Holo-Hilbert 譜分析，以及睡眠分期、紡錘波偵測、心率變異與睡眠 EEG 交互作用的實際研究導讀，每篇附可點的真實連結。">
+<link rel="stylesheet" href="css/style.css">
+<script src="js/site.js"></script>
+</head>
+<body>
+<main>
+
+  <h1>論文導讀</h1>
+  <p class="lead">
+    每一篇都寫「它解決什麼問題、結論是什麼」，並附上<strong>實際開啟確認過的連結</strong>。
+    查不到的東西一律標示「未找到」，不臆測、不補齊。
+  </p>
+
+  <!-- ============================================ 誠實的前提 -->
+  <div class="note crit">
+    <h2 style="margin-top:0">先講一件重要的事：黃鍔院士沒有「EMD 專攻睡眠」的代表作</h2>
+    <p>
+      這份作業的題目是「EMD 在睡眠上的研究」。
+      但實際去查之後，必須誠實報告一個發現：
+      <strong>黃鍔院士本人的著作清單裡，找不到任何以睡眠為主題的論文。</strong>
+    </p>
+    <p><strong>查核方式與結果（2026-09-19 查證）：</strong></p>
+    <ul>
+      <li>檢視他的 <a href="https://scholar.google.com/citations?user=ohK5A7EAAAAJ&hl=en">Google Scholar 個人頁</a>
+        （總引用數 97,043）——列出的著作中<strong>沒有</strong>標題含 sleep、spindle、polysomnography、
+        insomnia 或 apnea 的論文。</li>
+      <li>檢視他在<a href="https://scholar.nycu.edu.tw/en/persons/norden-e-huang/">陽明交大學術資源網的個人頁</a>
+        （職稱：腦科學研究所 Contract Research Fellow）——同樣<strong>沒有</strong>睡眠主題的著作。
+        該頁列出的方向是 EMD／HHT 方法學、EEG 分析、阿茲海默症偵測、麻醉深度監測。</li>
+      <li>以多組關鍵字搜尋「Huang + sleep + EMD」，回來的睡眠論文<strong>全部</strong>是其他團隊的著作，
+        只是引用了 Huang 1998。</li>
+    </ul>
+    <p style="margin-bottom:0">
+      <strong>所以這個網站的主軸不是「找一篇睡眠論文來講」，而是回答一個更根本的問題：</strong>
+      為什麼一個為海洋波浪與地球物理訊號發展出來的方法，會被睡眠研究界大量採用？
+      答案在訊號的性質，不在論文的標題。他做的是<strong>方法</strong>，睡眠是<strong>下游應用</strong>——
+      而這個分工本身，正是理解 EMD 意義的關鍵。
+    </p>
+    <p style="margin-bottom:0">
+      <strong>附帶一個查到的事實：</strong>黃鍔院士目前在
+      <a href="https://scholar.nycu.edu.tw/en/persons/norden-e-huang/">陽明交通大學腦科學研究所</a>
+      掛名 Contract Research Fellow。他 1998 年那篇 EMD 論文的引用數是 <strong>34,102</strong>，
+      個人總引用數 <strong>97,043</strong>（Google Scholar，2026-09-19 查）。
+    </p>
+  </div>
+
+  <!-- ============================================ A. 方法學 -->
+  <h2 id="method">A. 方法學主線：黃鍔本人的工作</h2>
+
+  <ul class="ref">
+    <li>
+      <div class="title">1. The empirical mode decomposition and the Hilbert spectrum for nonlinear and non-stationary time series analysis</div>
+      <div class="meta">Huang, N. E., Shen, Z., Long, S. R., Wu, M. C., Shih, H. H., Zheng, Q., Yen, N.-C., Tung, C. C., &amp; Liu, H. H. (1998).
+        <em>Proceedings of the Royal Society of London A</em>, 454(1971), 903–995.
+        <a href="https://doi.org/10.1098/rspa.1998.0193">doi:10.1098/rspa.1998.0193</a>
+        · <span class="tag ok">34,102 次引用</span>（Google Scholar，2026-09-19）</div>
+      <div class="what">
+        <strong>問題：</strong>傅立葉與小波分析都需要事先選定基底，處理非線性、非穩態資料時會產生沒有物理意義的假分量
+        （例如用一堆高次諧波去描述一個本來就不是正弦的波形）。<br>
+        <strong>作法：</strong>提出 EMD——完全由資料局部極值驅動的自適應分解，加上 Hilbert 轉換取得瞬時頻率，
+        合稱 Hilbert-Huang 轉換（HHT）。<br>
+        <strong>結論：</strong>對非線性非穩態訊號，HHT 能給出比傅立葉／小波更集中、更具物理意義的時頻表示。
+        <strong>這是本網站所有程式碼的演算法依據。</strong>
+      </div>
+    </li>
+
+    <li>
+      <div class="title">2. Ensemble Empirical Mode Decomposition: a noise-assisted data analysis method</div>
+      <div class="meta">Wu, Z., &amp; Huang, N. E. (2009).
+        <em>Advances in Adaptive Data Analysis</em>, 1(1), 1–41.
+        <a href="https://doi.org/10.1142/S1793536909000047">doi:10.1142/S1793536909000047</a>
+        · <span class="tag ok">11,630 次引用</span>（Google Scholar，2026-09-19）</div>
+      <div class="what">
+        <strong>問題：</strong>原版 EMD 有 <strong>mode mixing</strong>——訊號中的間歇性成分（例如一次 K-複合波）
+        會讓同一層 IMF 在不同時間代表完全不同的頻率，物理解釋因此失效。<br>
+        <strong>作法：</strong>對原訊號加上多組不同的白雜訊，各跑一次 EMD，再把對應層的 IMF 平均。
+        白雜訊提供均勻分布的參考尺度，各次的 mode mixing 會互相抵銷。<br>
+        <strong>結論：</strong>大幅改善 mode mixing，代價是<strong>失去完全重建性</strong>、計算量乘上 ensemble 次數，
+        而且殘留雜訊需要額外處理（後續的 CEEMDAN 就是在解這件事）。
+        <a href="emd.html">互動演算法頁</a>的「間歇高頻叢發」訊號可以直接看到 mode mixing。
+      </div>
+    </li>
+
+    <li>
+      <div class="title">3. On Holo-Hilbert spectral analysis: a full informational spectral representation for nonlinear and non-stationary data</div>
+      <div class="meta">Huang, N. E., Hu, K., Yang, A. C. C., Chang, H.-C., Jia, D., Liang, W.-K., Yeh, J. R., Kao, C.-L.,
+        Juan, C.-H., Peng, C. K., Meijer, J. H., Wang, Y.-H., Long, S. R., &amp; Wu, Z. (2016).
+        <em>Philosophical Transactions of the Royal Society A</em>, 374(2065), 20150206.
+        <a href="https://doi.org/10.1098/rsta.2015.0206">doi:10.1098/rsta.2015.0206</a>
+        · <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4792412/">PMC4792412（免費全文）</a>
+        · <span class="tag ok">作者清單已逐一核對</span></div>
+      <div class="what">
+        <strong>問題：</strong>連 HHT 也只描述了「調頻」（frequency modulation），沒有處理「調幅」（amplitude modulation）。
+        但生理訊號裡最重要的現象之一是<strong>跨頻率耦合</strong>（cross-frequency coupling）——
+        慢波的相位調控快波的振幅。這在傳統頻譜上看不出來。<br>
+        <strong>作法：</strong>對 IMF 的<strong>包絡</strong>再做一次 EMD，建立一個多維頻譜
+        （載波頻率 × 調變頻率 × 時間），同時涵蓋加法性與乘法性、模內與模間、線性與非線性的交互作用。<br>
+        <strong>結論：</strong>HHSA 能揭露傳統方法看不到的非線性耦合結構。
+        <strong>這一篇跟睡眠的關聯最直接</strong>——慢波睡眠期間，慢振盪的相位會調控高頻活動的振幅，
+        正是 HHSA 設計來描述的現象。
+      </div>
+    </li>
+
+    <li>
+      <div class="title">4. Revealing the Dynamic Nature of Amplitude Modulated Neural Entrainment With Holo-Hilbert Spectral Analysis</div>
+      <div class="meta">Juan, C.-H., Nguyen, K. T., Liang, W.-K., Quinn, A. J., Chen, Y.-H., Muggleton, N. G., Yeh, J.-R.,
+        Woolrich, M. W., Nobre, A. C., &amp; Huang, N. E. (2021).
+        <em>Frontiers in Neuroscience</em>, 15, 673369.
+        <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8375503/">PMC8375503</a>
+        · <a href="https://doi.org/10.3389/fnins.2021.673369">doi:10.3389/fnins.2021.673369</a></div>
+      <div class="what">
+        <strong>問題：</strong>傳統的相位-振幅耦合（PAC）分析在遇到<strong>非正弦波形</strong>時會產生假陽性——
+        一個尖銳的非正弦慢波，在傅立葉分解下必然帶出諧波，這些諧波跟基頻當然「相位鎖定」，
+        但那是數學假象，不是真的神經耦合。<br>
+        <strong>結論：</strong>HHSA 因為不預設正弦基底，能避開這類假陽性，在人類視覺反應中分辨出真正的雙向跨頻率耦合。
+        <strong>對睡眠研究的意義：</strong>K-複合波與慢振盪都是典型的非正弦波形，
+        用傳統 PAC 分析睡眠資料時，這個假陽性風險是實質存在的。
+      </div>
+    </li>
+
+    <li>
+      <div class="title">5. A holo-spectral EEG analysis provides an early detection of cognitive decline and predicts the progression to Alzheimer's disease</div>
+      <div class="meta">Chu, K.-T., Lei, W.-C., Wu, M.-H., Fuh, J.-L., Wang, S.-J., French, I. T., Chang, W.-S., Chang, C.-F.,
+        Huang, N. E., Liang, W.-K., &amp; Juan, C.-H. (2023).
+        <em>Frontiers in Aging Neuroscience</em>, 15, 1195424.
+        <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10477374/">PMC10477374</a>
+        · <a href="https://doi.org/10.3389/fnagi.2023.1195424">doi:10.3389/fnagi.2023.1195424</a></div>
+      <div class="what">
+        <strong>問題：</strong>輕度認知障礙（MCI）到阿茲海默症的進展需要早期生物標記。<br>
+        <strong>作法：</strong>對靜息態 EEG 做 HHSA，取出 alpha 與 beta 頻段的<strong>調幅功率</strong>作為特徵，
+        再接機器學習分類。<br>
+        <strong>結論：</strong>調幅功率的衰減可以預測 MCI 到 AD 的進展。
+        <strong>為什麼放在這裡：</strong>這是目前黃鍔掛名、最接近「臨床 EEG 應用」的代表作。
+        它示範的模式——HHSA 抽特徵 → 分類器 → 臨床判別——
+        跟睡眠分期的技術路線<strong>完全一樣</strong>，只是換了疾病。
+        本篇作者群（Juan Chi-Hung、Liang Wei-Kuang 等，中央大學認知神經科學所）
+        就是黃鍔在台灣神經科學方面的主要合作團隊。
+      </div>
+    </li>
+  </ul>
+
+  <!-- ============================================ B. 睡眠應用 -->
+  <h2 id="sleep">B. 睡眠應用：其他團隊把 EMD 用在睡眠上</h2>
+  <p class="lead" style="font-size:1rem">
+    以下論文的共同點：都引用 Huang 1998，但作者群裡<strong>沒有黃鍔</strong>。
+    這正是「方法學 vs 下游應用」分工的具體證據。
+  </p>
+
+  <ul class="ref">
+    <li>
+      <div class="title">6. Sleep stage classification based on EEG Hilbert-Huang transform</div>
+      <div class="meta">IEEE 研討會論文。
+        <a href="https://ieeexplore.ieee.org/document/5138842/">IEEE Xplore 5138842</a>
+        · <a href="https://www.researchgate.net/publication/224546246_Sleep_stage_classification_based_on_EEG_Hilbert-Huang_transform">ResearchGate</a>
+        · <a href="https://www.semanticscholar.org/paper/ff71aa1620a8daa77662f820f2c1536cda0b66c7">Semantic Scholar</a>
+        · <span class="tag warn">作者與研討會名稱未能核實</span></div>
+      <div class="what">
+        <strong>問題：</strong>人工判讀整夜 PSG 極度耗時（一夜約 960 個 epoch），需要自動分期。<br>
+        <strong>作法：</strong>EMD 把 EEG 拆成 IMF → Hilbert 轉換取得瞬時頻率與能量-頻率分布 → 作為特徵 → 最近鄰分類。<br>
+        <strong>結論：</strong>這是把 HHT 系統性用於睡眠分期最早的一批工作之一，確立了
+        「IMF → 瞬時頻率／振幅 → 特徵 → 分類器」這條至今仍在用的管線。
+        <span class="tag warn">注意</span> 原始 PDF 在 IEEE Xplore 需訂閱；本頁描述來自公開摘要。
+        <strong>作者姓名與研討會名稱多次嘗試仍無法從公開頁面確認，因此不列出</strong>——寧可缺欄位，也不寫沒查到的東西。
+      </div>
+    </li>
+
+    <li>
+      <div class="title">7. Sleep Stage Classification Based on EEG Signals by Using Improved Hilbert-Huang Transform</div>
+      <div class="meta"><em>Applied Mechanics and Materials</em>, 138–139, 1096–1101.
+        <a href="https://www.scientific.net/AMM.138-139.1096">scientific.net/AMM.138-139.1096</a></div>
+      <div class="what">
+        <strong>問題：</strong>直接對 EEG 做 EMD 時，各層 IMF 的頻率範圍會互相重疊（mode mixing 的一種表現），
+        導致特徵不乾淨、分類率受限。<br>
+        <strong>作法：</strong>先用<strong>小波包（wavelet package）</strong>做預處理把訊號粗分頻帶，再對各帶做 HHT。
+        這是典型的「用固定基底方法補 EMD 的短處」的混成策略。<br>
+        <strong>結論：</strong>在 560 個睡眠 EEG 樣本上達到<strong>平均 81.7% 的分期準確率</strong>。
+        <span class="tag warn">解讀提醒</span> 81.7% 這個數字要放在脈絡看：人類判讀者之間的一致性本身也不是 100%
+        （文獻上常見的專家間 Cohen's κ 約 0.7–0.8），而且不同論文用的資料集、分期數（5 期 vs 6 期）、
+        驗證方式都不同，<strong>跨論文直接比較準確率是沒有意義的</strong>。
+      </div>
+    </li>
+
+    <li>
+      <div class="title">8. Detection of Spindles in Sleep EEGs Using a Novel Algorithm Based on the Hilbert-Huang Transform</div>
+      <div class="meta">In: <em>Wavelet Analysis and Applications</em>, Applied and Numerical Harmonic Analysis, Birkhäuser.
+        <a href="https://link.springer.com/chapter/10.1007/978-3-7643-7778-6_40">doi:10.1007/978-3-7643-7778-6_40</a></div>
+      <div class="what">
+        <strong>問題：</strong>睡眠紡錘波是 N2 期判讀的核心依據，但它是短暫叢發，
+        用固定窗的時頻方法很難同時取得足夠的時間與頻率解析度。<br>
+        <strong>作法：</strong>EMD 分解 → 對各 IMF 算 Hilbert 譜 → 在高時間解析度的時頻平面上找紡錘波。<br>
+        <strong>結論：</strong>報告了「令人鼓舞」的偵測結果。
+        <strong>本網站<a href="sleep.html#spindle">睡眠應用頁第 4 節</a>實作的就是這個骨架</strong>，
+        並在成分已知的合成訊號上驗證了它能把放進去的兩個紡錘波找回來。
+      </div>
+    </li>
+
+    <li>
+      <div class="title">9. Investigating the interaction between heart rate variability and sleep EEG using nonlinear algorithms</div>
+      <div class="meta"><em>Journal of Neuroscience Methods</em>, 2013.
+        <a href="https://www.sciencedirect.com/science/article/abs/pii/S0165027013002793">ScienceDirect S0165027013002793</a></div>
+      <div class="what">
+        <strong>問題：</strong>睡眠時自律神經（心跳）與中樞神經（腦波）之間有耦合，
+        但兩者都是非線性非穩態訊號，用線性相關分析會漏掉關係。<br>
+        <strong>作法：</strong>用 EMD／HHT 等非線性演算法同時分析 HRV 與睡眠 EEG，量化兩者的交互作用。<br>
+        <strong>結論：</strong>示範了 EMD 不只用於單一訊號，也能用於<strong>跨系統耦合</strong>分析。
+        <span class="tag warn">注意</span> 本頁多次嘗試存取全文皆被出版社擋下（HTTP 403），
+        <strong>此處描述依據標題與公開摘要，未核對全文數據</strong>。
+      </div>
+    </li>
+
+    <li>
+      <div class="title">10. Complexity of Wake Electroencephalography Correlates With Slow Wave Activity After Sleep Onset</div>
+      <div class="meta">Hou, F., Yu, Z., Peng, C.-K., Yang, A., Wu, C., &amp; Ma, Y. (2018).
+        <em>Frontiers in Neuroscience</em>, 12, 809.
+        <a href="https://www.frontiersin.org/journals/neuroscience/articles/10.3389/fnins.2018.00809/full">doi:10.3389/fnins.2018.00809</a></div>
+      <div class="what">
+        <strong>問題：</strong>睡前的腦波複雜度，跟後續入睡快慢與睡眠深度有沒有關係？<br>
+        <strong>作法：</strong>對睡前 EEG 做多尺度熵分析；並用 <strong>EEMD</strong> 量化入睡後的慢波活動
+        ——論文明確指出改用 EEMD 是因為傳統 FFT 不適合非線性非穩態的 EEG。<br>
+        <strong>結論：</strong>較低的清醒期複雜度對應較短的入睡潛伏期與較高的慢波活動。<br>
+        <strong>為什麼特別列這篇：</strong>它的方法段寫著
+        「The MATLAB code for EEMD was shared by RCADA (<a href="http://rcada.ncu.edu.tw/research1.htm">rcada.ncu.edu.tw</a>)」
+        ——RCADA 正是黃鍔在中央大學創立的資料分析研究中心。
+        <strong>這是「黃鍔的方法如何流進睡眠研究」最直接的一條證據鏈：不是透過他掛名論文，而是透過他釋出的程式碼。</strong>
+      </div>
+    </li>
+
+    <li>
+      <div class="title">11. Empirical Mode Decomposition-Based Classification of Presleep/Sleep/Postsleep Stages</div>
+      <div class="meta">Springer Lecture Notes.
+        <a href="https://link.springer.com/chapter/10.1007/978-981-96-9191-3_7">doi:10.1007/978-981-96-9191-3_7</a></div>
+      <div class="what">
+        <strong>問題：</strong>把分期問題簡化成「睡前／睡眠／睡後」三態，探討 EMD 特徵的判別能力。<br>
+        <strong>結論：</strong>顯示 EMD 導出的特徵即使在較粗的分期任務上仍有區辨力。
+        <span class="tag warn">注意</span> 本頁僅確認連結有效與題名正確，<strong>未取得全文</strong>，
+        因此不對其數據或方法細節作陳述。
+      </div>
+    </li>
+
+    <li>
+      <div class="title">12. Holo-Hilbert spectral-based noise removal method for EEG high-frequency bands</div>
+      <div class="meta">Moradi, N., LeVan, P., Akin, B., Goodyear, B. G., &amp; Sotero, R. C. (2021).
+        <em>Journal of Neuroscience Methods</em>.
+        <a href="https://www.sciencedirect.com/science/article/abs/pii/S0165027021004052">ScienceDirect</a>
+        · <a href="https://www.biorxiv.org/content/10.1101/2021.04.28.440961v2.full">bioRxiv 全文（免費）</a></div>
+      <div class="what">
+        <strong>問題：</strong>EEG 的 gamma 頻段（&gt;30 Hz）雜訊嚴重，既有去噪方法多半是為低頻設計的。<br>
+        <strong>作法：</strong>基於 HHSA，對調幅與調頻成分分別做 EMD，移除低功率的 IMF。<br>
+        <strong>結論：</strong>比原版 HHSA 有更高的互資訊且計算量更低。
+        <strong>跟睡眠的關聯：</strong>睡眠研究近年關注慢波與高頻漣漪（ripple）的耦合，
+        而高頻帶的雜訊處理正是這類分析的前置瓶頸。
+        <span class="tag">已核對</span> 作者群中<strong>沒有</strong>黃鍔，但方法直接建立在 HHSA 之上。
+      </div>
+    </li>
+
+    <li>
+      <div class="title">13. Time-trend analysis of the center frequency of the intrinsic mode function from the Hilbert-Huang transform of electroencephalography during general anesthesia</div>
+      <div class="meta">Obata, Y., Yamada, T., Akiyama, K., &amp; Sawa, T. (2023).
+        <em>BMC Anesthesiology</em>, 23(1), 125.
+        <a href="https://pubmed.ncbi.nlm.nih.gov/37059989/">PubMed 37059989</a>
+        · <a href="https://doi.org/10.1186/s12871-023-02082-4">doi:10.1186/s12871-023-02082-4</a></div>
+      <div class="what">
+        <strong>問題：</strong>麻醉深度監測。<br>
+        <strong>作法：</strong>30 位病人的 EEG，追蹤 HHT 各層 IMF 的中心頻率隨時間的變化。<br>
+        <strong>結論：</strong>IMF1、IMF2 的瞬時頻率能辨識麻醉誘導與甦醒期的 EEG 變化。<br>
+        <strong>為什麼列進來：</strong>全身麻醉與自然睡眠的 EEG 有大量共通特徵
+        （慢波主導、紡錘波樣活動）。這篇提供了一個<strong>在真實臨床資料上</strong>使用 HHT 的完整範例，
+        而且結論的形式——「看 IMF 的中心頻率怎麼隨時間走」——跟睡眠分期幾乎是同一件事。
+      </div>
+    </li>
+
+    <li>
+      <div class="title">14. Screening of Obstructive Sleep Apnea with Empirical Mode Decomposition of Pulse Oximetry</div>
+      <div class="meta">arXiv:1405.7843.
+        <a href="https://arxiv.org/pdf/1405.7843">arXiv 全文（免費）</a></div>
+      <div class="what">
+        <strong>問題：</strong>阻塞性睡眠呼吸中止症（OSA）的確診需要整夜 PSG，成本高、排程久，需要低成本篩檢工具。<br>
+        <strong>作法：</strong>只用血氧飽和度（pulse oximetry）訊號，以 EMD 抽取特徵來偵測呼吸中止事件。<br>
+        <strong>結論：</strong>示範了 EMD 在睡眠領域的應用<strong>不限於 EEG</strong>——
+        血氧、心電、呼吸訊號同樣是非穩態的生理訊號，同樣適用。
+      </div>
+    </li>
+  </ul>
+
+  <!-- ============================================ C. 演算法批判 -->
+  <h2 id="critique">C. 演算法層面：批判與改良</h2>
+  <p class="lead" style="font-size:1rem">
+    這兩篇是本網站<a href="limits.html">「EMD 的極限」</a>一頁的主要依據，也是實作時實際參照的技術文件。
+  </p>
+
+  <ul class="ref">
+    <li>
+      <div class="title">15. On empirical mode decomposition and its algorithms</div>
+      <div class="meta">Rilling, G., Flandrin, P., &amp; Gonçalvès, P. (2003).
+        <em>IEEE-EURASIP Workshop on Nonlinear Signal and Image Processing (NSIP-03)</em>, Grado, Italy.
+        <a href="https://perso.ens-lyon.fr/patrick.flandrin/NSIP03.pdf">PDF 全文（作者自存，免費）</a></div>
+      <div class="what">
+        <strong>問題：</strong>Huang 1998 描述的是<strong>概念</strong>，不是可重現的規格。
+        停止準則怎麼訂？端點的包絡線怎麼處理？不同實作會得到不同的 IMF。<br>
+        <strong>作法：</strong>系統性檢討各種演算法變體，提出新的停止準則與端點處理方式。<br>
+        <strong>結論與本站的關聯：</strong>本網站的<strong>端點鏡像延伸</strong>（<code>js/emd.js</code> 的
+        <code>boundaryConditions</code>）就是依這篇的 <code>boundary_conditions</code> 作法實作的——
+        把最靠近兩端的 2 個極值鏡射到訊號之外，避免三次樣條在端點缺乏支撐而發散。
+      </div>
+    </li>
+
+    <li>
+      <div class="title">16. One or Two Frequencies? The Empirical Mode Decomposition Answers</div>
+      <div class="meta">Rilling, G., &amp; Flandrin, P. (2008).
+        <em>IEEE Transactions on Signal Processing</em>, 56(1), 85–95.
+        <a href="https://perso.ens-lyon.fr/patrick.flandrin/04359551.pdf">PDF 全文（作者自存，免費）</a></div>
+      <div class="what">
+        <strong>問題：</strong>兩個頻率靠多近時，EMD 會把它們當成一個成分？<strong>EMD 的頻率解析度到底是多少？</strong><br>
+        <strong>作法：</strong>對雙弦波訊號做系統性的參數掃描，畫出「頻率比 × 振幅比」平面上的分離／不分離邊界。<br>
+        <strong>結論：</strong>分離能力同時取決於<strong>頻率比與振幅比</strong>，不是單一門檻。
+        粗略而言頻率比需大於約 2 才能穩定分開；而且<strong>振幅比越懸殊，需要的頻率比越大</strong>。<br>
+        <strong>對睡眠的直接衝擊：</strong>alpha（8–13 Hz）與紡錘波 sigma（11–16 Hz）<strong>本來就重疊</strong>，
+        頻率比遠小於 2。<strong>EMD 在原理上就無法把兩者分開</strong>。
+        <a href="emd.html">互動演算法頁</a>選「雙頻合成（8 Hz + 12 Hz）」可以親眼驗證——那不是 bug，是理論預期。
+      </div>
+    </li>
+  </ul>
+
+  <!-- ============================================ 未找到 -->
+  <h2 id="notfound">未找到的東西（誠實紀錄）</h2>
+  <div class="card">
+    <p>為了讓這份導讀可被查核，以下明確記錄「找過但沒找到」的項目：</p>
+    <ul>
+      <li><strong>黃鍔本人為作者、以睡眠為主題的論文</strong>——<span class="tag bad">未找到</span>
+        已查 Google Scholar 個人頁、陽明交大學術資源網個人頁，以及多組關鍵字搜尋。</li>
+      <li><strong>2026-09-24 演講的講題全文或摘要</strong>——<span class="tag bad">未找到</span>
+        網路上查不到公開的議程頁面。本站對演講內容的推測<strong>僅根據助教轉述</strong>，
+        以及黃鍔近年的實際發表方向（HHSA 應用於臨床 EEG），不是根據任何官方資料。</li>
+      <li><strong>HHSA 直接用於睡眠分期或紡錘波的論文</strong>——<span class="tag warn">未找到明確的一篇</span>
+        HHSA 用於神經訊號（視覺夾帶、麻醉、阿茲海默症）的論文存在，但以睡眠分期為題的未找到。
+        這可能代表該方向尚未被充分開發，也可能只是本次搜尋沒有覆蓋到。</li>
+      <li><strong>第 6、9、11 篇的全文</strong>——<span class="tag warn">未取得</span>
+        出版社付費牆或 403。相關描述僅依據公開摘要，已在各條目下標註。</li>
+    </ul>
+    <p style="margin-bottom:0">
+      這些「未找到」不是作業做不完，而是查核結果本身。
+      把它們寫出來，讀者才有辦法判斷哪些陳述是可靠的、哪些是推論。
+    </p>
+  </div>
+
+  <div class="note">
+    <p style="margin-bottom:0"><strong>連結查核方式：</strong>
+    本頁所有連結都在 2026-09-19 實際開啟過。
+    標示 <span class="tag ok">已核對</span> 的項目，其作者、年份、期刊、結論均取自實際抓取的頁面內容；
+    標示 <span class="tag warn">注意</span> 的項目，僅確認連結有效與題名正確，內容描述來自公開摘要。
+    <strong>本頁沒有任何憑印象書寫的文獻。</strong></p>
+  </div>
+
+</main>
+</body>
+</html>

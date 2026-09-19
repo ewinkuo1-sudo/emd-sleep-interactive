@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EMD 的極限 — EMD × 睡眠訊號互動教學</title>
+<meta name="description" content="誠實面對 EMD 的已知弱點：mode mixing、端點效應、缺乏數學基礎、停止準則靠經驗、頻率解析度限制，以及 EEMD / CEEMDAN 這些補丁各自的代價。每個弱點都有可互動的現場示範。">
+<link rel="stylesheet" href="css/style.css">
+<script src="js/site.js"></script>
+</head>
+<body>
+<main>
+
+  <h1>EMD 的極限</h1>
+  <p class="lead">
+    前面幾頁都在講 EMD 能做什麼。這一頁講它做不到什麼——而且盡量用<strong>現場跑出來的圖</strong>證明，
+    不是嘴上說說。一個方法的價值，要看它在自己失效的地方誠不誠實。
+  </p>
+
+  <div class="note">
+    <p style="margin-bottom:0"><strong>為什麼要專門寫這一頁：</strong>
+    EMD 在應用領域（包括睡眠）被大量使用，但它的理論地位跟傅立葉轉換差得非常遠。
+    把它當成「更好的傅立葉」來用，會在特定情況下得到完全錯誤的結論。
+    以下六個問題全都是<strong>原理層級</strong>的限制，不是實作沒寫好。</p>
+  </div>
+
+  <nav class="card toc" aria-label="本頁目錄">
+    <strong>本頁內容</strong>
+    <a href="#no-math">1. 沒有數學定義，只有演算法定義</a>
+    <a href="#mode-mixing">2. Mode mixing（模態混合）— 最嚴重的問題</a>
+    <a href="#resolution">3. 頻率解析度有下限</a>
+    <a href="#endpoint">4. 端點效應</a>
+    <a href="#stopping">5. 停止準則靠經驗，沒有最佳解</a>
+    <a href="#patches">6. EEMD / CEEMDAN：補丁與它們的代價</a>
+    <a href="#verdict">總結：什麼時候該用、什麼時候不該用</a>
+  </nav>
+
+  <!-- ============================================ 1 -->
+  <h2 id="no-math">1. 沒有數學定義，只有演算法定義</h2>
+  <p>
+    傅立葉轉換有一行公式。小波轉換有母小波與可容許條件。
+    <strong>EMD 沒有。</strong>「什麼是 IMF」的唯一定義方式是「跑這段虛擬碼得到的東西」。
+    這件事的後果比想像中嚴重：
+  </p>
+  <ul>
+    <li><strong>沒有唯一性。</strong>換一種樣條（三次 vs B 樣條）、換一種端點處理、換一個停止門檻，
+      得到的 IMF 就不一樣。不同的 EMD 套件對同一筆資料給出不同答案是常態。</li>
+    <li><strong>沒有收斂性證明。</strong>沒有定理保證 sifting 一定會停，也沒有定理說它停在哪裡。
+      實務上靠「最大迭代次數」硬中止。</li>
+    <li><strong>沒有誤差理論。</strong>輸入有雜訊時，IMF 的誤差有多大？沒有解析答案，只能做模擬。</li>
+    <li><strong>沒有完備性 / 正交性。</strong>IMF 之間<em>近似</em>正交，但不保證正交。
+      「各層能量加起來等於總能量」這件事在 EMD 上<strong>不嚴格成立</strong>。</li>
+  </ul>
+  <div class="note warn">
+    <p style="margin-bottom:0"><strong>對睡眠研究的實際衝擊：</strong>
+    如果論文 A 用 MATLAB 的某個 EMD 實作、論文 B 用 Python 的 <code>PyEMD</code>，
+    兩邊的「IMF 3」不保證是同一個東西。<strong>跨論文比較 IMF 層級的結果，在方法學上是站不住的。</strong>
+    這也是為什麼負責任的論文會明確寫出用的是哪個實作、哪組參數。
+    （本網站的實作與參數全部公開在 <a href="https://github.com/ewinkuo1-sudo/emd-sleep-interactive/blob/main/js/emd.js">js/emd.js</a>。）</p>
+  </div>
+
+  <!-- ============================================ 2 -->
+  <h2 id="mode-mixing">2. Mode mixing（模態混合）</h2>
+  <p>
+    這是 EMD 最著名、也最致命的問題。定義是：
+    <strong>同一層 IMF 在不同時間段代表完全不同的頻率尺度</strong>，
+    或者<strong>同一個頻率尺度被拆散到不同層的 IMF 裡</strong>。
+  </p>
+  <p>
+    成因是 EMD 完全依賴局部極值。一段訊號裡只要出現一小段高頻叢發，
+    那段時間的極值密度就暴增，sifting 會把它整個抓進 IMF 1；
+    但叢發結束後，IMF 1 只好去抓下一個最快的成分——於是 IMF 1 的「意義」在時間軸上變了。
+  </p>
+
+  <div class="controls" role="group" aria-label="mode mixing 示範參數">
+    <div class="ctrl">
+      <label for="mmAmp">叢發振幅 <span class="val" id="mmAmpv">0.40</span></label>
+      <input type="range" id="mmAmp" min="0" max="1.2" step="0.05" value="0.4">
+    </div>
+    <div class="ctrl">
+      <label for="mmFreq">叢發頻率 <span class="val" id="mmFreqv">30</span> Hz</label>
+      <input type="range" id="mmFreq" min="10" max="50" step="1" value="30">
+    </div>
+    <div class="ctrl">
+      <label for="mmDur">叢發長度 <span class="val" id="mmDurv">0.50</span> s</label>
+      <input type="range" id="mmDur" min="0.1" max="3" step="0.05" value="0.5">
+    </div>
+  </div>
+
+  <figure class="figure">
+    <div class="chart-wrap"><canvas id="mmSig" aria-label="含間歇高頻叢發的訊號"></canvas></div>
+    <figcaption>基底是乾淨的 2 Hz 正弦波，中間插入一段短暫的高頻叢發（橘色區間）。
+      把叢發振幅拉到 0，就是純粹的 2 Hz 訊號。</figcaption>
+  </figure>
+
+  <figure class="figure">
+    <div id="mmStack"></div>
+    <figcaption>EMD 分解結果。<strong>注意 IMF 1</strong>：叢發期間它是高頻，
+      叢發之外它變成低振幅的雜訊或乾脆貼著零——它在不同時間代表的不是同一件事。</figcaption>
+  </figure>
+
+  <figure class="figure">
+    <div class="chart-wrap"><canvas id="mmIf" aria-label="IMF 1 的瞬時頻率隨時間劇烈跳動"></canvas></div>
+    <div class="legend" id="mmIfLegend"></div>
+    <figcaption>把 IMF 1 的瞬時頻率畫出來，mode mixing 就無所遁形：
+      頻率在叢發期間與其他時間<strong>差了一個數量級</strong>。
+      如果拿「IMF 1 的平均頻率」當特徵餵給分類器，這個數字沒有物理意義。</figcaption>
+  </figure>
+
+  <div class="note crit">
+    <p style="margin-bottom:0"><strong>睡眠 EEG 是 mode mixing 的重災區。</strong>
+    N2 期的 <strong>K-複合波</strong>是一個接近階躍的孤立瞬變，
+    <strong>紡錘波</strong>是持續 0.5–2 秒的叢發，兩者都是典型的「間歇性成分」。
+    在<a href="sleep.html">睡眠應用頁</a>可以看到：被選中的那層 IMF 在紡錘波期間頻率穩定在 13 Hz 左右，
+    其他時間卻亂跳到 25–35 Hz。那不是偵測器壞掉，那就是 mode mixing。
+    <strong>本網站的紡錘波偵測之所以要「逐時間點」判斷而不是用整段平均，正是為了繞開這個問題。</strong></p>
+  </div>
+
+  <!-- ============================================ 3 -->
+  <h2 id="resolution">3. 頻率解析度有下限</h2>
+  <p>
+    Rilling &amp; Flandrin (2008) 用系統性的參數掃描回答了「EMD 到底分得開多近的兩個頻率」這個問題。
+    結論是：<strong>分離能力同時取決於頻率比與振幅比</strong>，粗略而言頻率比要大於約 2 才穩定，
+    而且<strong>振幅差距越大，需要的頻率比越大</strong>。
+  </p>
+
+  <div class="controls" role="group" aria-label="頻率解析度示範參數">
+    <div class="ctrl">
+      <label for="resRatio">頻率比 f₂/f₁ <span class="val" id="resRatiov">1.50</span></label>
+      <input type="range" id="resRatio" min="1.05" max="4" step="0.05" value="1.5">
+    </div>
+    <div class="ctrl">
+      <label for="resAmp">振幅比 a₂/a₁ <span class="val" id="resAmpv">1.00</span></label>
+      <input type="range" id="resAmp" min="0.1" max="2" step="0.05" value="1">
+    </div>
+    <div class="ctrl" style="max-width:40ch">
+      <label>&nbsp;</label>
+      <span style="font-size:0.8rem;color:var(--text-secondary)">
+        固定 f₁ = 8 Hz。把頻率比拉到 1.5（= 12 Hz）就是 alpha 與紡錘波的真實情況。
+      </span>
+    </div>
+  </div>
+
+  <div class="card" id="resVerdict"></div>
+
+  <figure class="figure">
+    <div class="chart-wrap"><canvas id="resSig" aria-label="雙頻訊號"></canvas></div>
+    <figcaption>輸入訊號：兩個正弦波相加。</figcaption>
+  </figure>
+
+  <figure class="figure">
+    <div id="resStack"></div>
+    <figcaption>EMD 分解。頻率比夠大時會乾淨地分成兩層；
+      比值接近 1 時 EMD 會把它們視為<strong>單一個調幅訊號</strong>——這在數學上其實也沒錯，
+      因為兩個相近頻率的和本來就等於一個拍頻（beat）訊號。<strong>問題在於你想要哪一種解釋。</strong></figcaption>
+  </figure>
+
+  <div class="note warn">
+    <p style="margin-bottom:0"><strong>這對睡眠分析是硬傷。</strong>
+    alpha 節律 8–13 Hz 與紡錘波 sigma 11–16 Hz <strong>本來就重疊</strong>，頻率比遠小於 2。
+    <strong>EMD 在原理上無法把清醒期的 alpha 與 N2 期的紡錘波分開。</strong>
+    真正區分它們的不是頻率，而是<strong>時間結構</strong>（alpha 持續、紡錘波是 0.5–2 秒的叢發）
+    與<strong>空間分布</strong>（alpha 在枕區、紡錘波在額頂區）。
+    這也是為什麼實用的紡錘波偵測器一定要用「持續時間」這個條件，不能只看頻率。</p>
+  </div>
+
+  <!-- ============================================ 4 -->
+  <h2 id="endpoint">4. 端點效應</h2>
+  <p>
+    三次樣條需要兩端都有極值點才畫得出包絡線。但訊號的第一個點和最後一個點幾乎不會剛好是極值。
+    <strong>端點的包絡線是外插出來的，也就是猜的。</strong>這個猜測的誤差會在 sifting 迭代中被放大，
+    而且會從兩端往內侵蝕。
+  </p>
+  <p>
+    本網站採用 Rilling et al. (2003) 的<strong>鏡像對稱延伸</strong>：把最靠近端點的兩個極值鏡射到訊號之外。
+    這能大幅減輕問題，但<strong>減輕不等於消除</strong>。下圖直接量給你看。
+  </p>
+
+  <figure class="figure">
+    <div class="chart-wrap"><canvas id="epIf" aria-label="chirp 瞬時頻率估計誤差隨位置的變化"></canvas></div>
+    <div class="legend" id="epIfLegend"></div>
+    <figcaption>用理論值已知的 chirp 訊號（線性從 2 Hz 掃到 25 Hz）當標尺，
+      畫出 EMD + Hilbert 估計出的瞬時頻率減去理論值。</figcaption>
+  </figure>
+
+  <div class="card" id="epStats"></div>
+
+  <div class="note warn">
+    <p style="margin-bottom:0"><strong>實務建議：</strong>分析時<strong>永遠捨棄前後各 5–10% 的資料</strong>。
+    睡眠研究通常以 30 秒 epoch 為單位，若直接對單一 epoch 做 EMD，
+    前後各 1.5–3 秒的結果不可信。
+    常見的處理是取比 epoch 更長的一段（例如前後各多取 5 秒）再裁掉邊緣。</p>
+  </div>
+
+  <!-- ============================================ 5 -->
+  <h2 id="stopping">5. 停止準則靠經驗，沒有最佳解</h2>
+  <p>
+    Huang 1998 建議 SD 門檻取 0.2–0.3。<strong>這個數字是試出來的，沒有理論依據。</strong>
+    它控制的是一個真實的取捨：
+  </p>
+  <div class="grid-2">
+    <div class="card">
+      <h3 style="margin-top:0">門檻太大（sifting 太少）</h3>
+      <p>IMF 還不「純」就出場，裡面殘留著低頻成分。後果是兩個可量測的指標會變壞：</p>
+      <ul style="margin-bottom:0">
+        <li><strong>IMF 條件被破壞</strong>：極值數與零交越數的差距會遠大於 1。</li>
+        <li><strong>瞬時頻率出現負值</strong>：包絡均值不夠接近零時，
+          Hilbert 轉換會算出負的瞬時頻率——而負頻率在物理上沒有意義。</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">門檻太小（過度 sifting）</h3>
+      <p>教科書上的說法是：每多一次 sifting 都會把振幅的起伏磨平一點，
+        跑太多次後 IMF 會變成振幅幾乎固定的純調頻訊號，
+        而振幅變化本身往往才是要研究的生理現象。</p>
+      <p style="margin-bottom:0"><span class="tag warn">但本站實測沒能重現這個效應</span>
+        詳見下方的實測結果與說明——<strong>這是一個誠實的否定結果</strong>。</p>
+    </div>
+  </div>
+
+  <div class="controls" role="group" aria-label="停止準則示範參數">
+    <div class="ctrl">
+      <label for="sdSignal">測試訊號</label>
+      <select id="sdSignal">
+        <option value="noisy" selected>雙頻 1 + 12 Hz ＋ 白雜訊</option>
+        <option value="eeg">模擬 N2 睡眠 EEG</option>
+      </select>
+    </div>
+    <div class="ctrl">
+      <label for="sdSlider">SD 門檻 <span class="val" id="sdSliderv">0.200</span></label>
+      <input type="range" id="sdSlider" min="0.002" max="1.0" step="0.002" value="0.2">
+    </div>
+  </div>
+
+  <div class="card" id="sdStats"></div>
+
+  <figure class="figure">
+    <div class="chart-wrap"><canvas id="sdImf" aria-label="不同 SD 門檻下 IMF 1 的波形與振幅包絡"></canvas></div>
+    <div class="legend" id="sdImfLegend"></div>
+    <figcaption>IMF 1 的波形與它的瞬時振幅包絡。拖動 SD 門檻滑桿，觀察上方三個數字怎麼變。</figcaption>
+  </figure>
+
+  <figure class="figure">
+    <div class="chart-wrap"><canvas id="sdFreq" aria-label="不同 SD 門檻下 IMF 1 的瞬時頻率，負值區域被標出"></canvas></div>
+    <div class="legend" id="sdFreqLegend"></div>
+    <figcaption>IMF 1 的瞬時頻率。<strong>零線以下的部分就是沒有物理意義的負頻率。</strong>
+      門檻越大（sifting 越少），落在零線以下的比例越高。</figcaption>
+  </figure>
+
+  <div class="card" id="sdSweep"></div>
+
+  <!-- ============================================ 6 -->
+  <h2 id="patches">6. EEMD / CEEMDAN：補丁與它們的代價</h2>
+  <p>
+    Mode mixing 太嚴重，所以有了一連串的改良版。每一版都解決了前一版的問題，也都帶來新的代價。
+  </p>
+
+  <div class="table-scroll">
+  <table class="data">
+    <caption class="sr-only">EMD 各改良版本的比較</caption>
+    <thead><tr><th>方法</th><th>做法</th><th>解決了什麼</th><th>代價</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>EMD</strong><br><span style="color:var(--text-muted);font-size:0.8rem">Huang 1998</span></td>
+        <td>直接 sifting</td>
+        <td>—</td>
+        <td>mode mixing 嚴重</td>
+      </tr>
+      <tr>
+        <td><strong>EEMD</strong><br><span style="color:var(--text-muted);font-size:0.8rem">Wu &amp; Huang 2009</span></td>
+        <td>加多組白雜訊各跑一次 EMD，對應層平均</td>
+        <td>大幅改善 mode mixing</td>
+        <td><strong>失去完全重建性</strong>；計算量 ×N（N 常取 100–500）；殘留雜訊；IMF 層數在各次之間不一致時難以對齊</td>
+      </tr>
+      <tr>
+        <td><strong>CEEMDAN</strong><br><span style="color:var(--text-muted);font-size:0.8rem">Torres et al. 2011</span></td>
+        <td>逐層加入特製的雜訊，每層算完才加下一層</td>
+        <td>恢復（近似）完全重建性，殘留雜訊更小</td>
+        <td>計算量更大；多了「雜訊振幅」「ensemble 大小」兩個要調的參數；仍無理論保證</td>
+      </tr>
+      <tr>
+        <td><strong>VMD</strong><br><span style="color:var(--text-muted);font-size:0.8rem">Dragomiretskiy &amp; Zosso 2014</span></td>
+        <td>改成解一個變分最佳化問題</td>
+        <td><strong>有數學定義了</strong>，對雜訊穩健</td>
+        <td>必須<strong>事先指定模態數量 K</strong>——等於把 EMD 最大的優點（完全自適應）還了回去</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>
+    下面直接跑 EMD 與 EEMD 對照（ensemble = 30）。
+    <strong>注意重建誤差那一欄</strong>：EMD 是 10⁻¹⁶ 量級（浮點極限），EEMD 則是實質誤差。
+  </p>
+  <p style="font-size:0.9rem;color:var(--text-secondary)">
+    EEMD 要跑 30 次完整 EMD，在手機上可能需要幾秒鐘。
+  </p>
+  <p><button class="btn primary" id="btnEemd" type="button">跑 EMD vs EEMD 對照</button></p>
+  <div class="card" id="eemdResult" hidden></div>
+  <figure class="figure" id="eemdFig" hidden>
+    <div class="grid-2">
+      <div><h3>EMD</h3><div id="eemdA"></div></div>
+      <div><h3>EEMD（ensemble = 30）</h3><div id="eemdB"></div></div>
+    </div>
+    <figcaption>同一段間歇叢發訊號。看 IMF 1：EEMD 的版本比較「只含叢發」，
+      其他時間更接近零，物理意義比較乾淨。代價寫在上面的結果卡裡。</figcaption>
+  </figure>
+
+  <!-- ============================================ 總結 -->
+  <h2 id="verdict">總結：什麼時候該用、什麼時候不該用</h2>
+  <div class="grid-2">
+    <div class="card">
+      <h3 style="margin-top:0">適合用 EMD</h3>
+      <ul>
+        <li>訊號確實非穩態，而你要的就是「什麼時候發生了什麼」</li>
+        <li>探索階段——不知道該用什麼頻帶，想讓資料自己說</li>
+        <li>要描述調幅／調頻現象、跨頻率耦合</li>
+        <li>訊號長度足夠（至少涵蓋你關心的最低頻率的好幾個週期）</li>
+        <li>你願意<strong>把實作與參數完整寫進方法段</strong></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">不適合用 EMD</h3>
+      <ul>
+        <li>訊號本來就是穩態的——直接用 FFT，又快又有理論保證</li>
+        <li>要分離的兩個成分頻率比小於 2（例如 alpha vs 紡錘波）</li>
+        <li>資料很短，端點效應會吃掉大半</li>
+        <li>需要嚴格的統計推論（顯著性檢定、信賴區間）——EMD 沒有這套理論</li>
+        <li>要跨研究、跨實作比較 IMF 層級的結果</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="note">
+    <p style="margin-bottom:0"><strong>一句話：</strong>
+    EMD 是一個<strong>強大但沒有保固的工具</strong>。
+    它在傅立葉轉換失效的地方能給出有意義的答案，但它給的答案沒有任何定理背書。
+    <strong>用它的人有義務自己驗證結果合不合理</strong>——
+    這也是為什麼本網站每一個演算法都附了可重跑的驗證
+    （<a href="https://github.com/ewinkuo1-sudo/emd-sleep-interactive/tree/main/test">test/</a>，
+    <code>node test/test-emd.mjs</code> 與 <code>node test/test-spindle.mjs</code>）。</p>
+  </div>
+
+</main>
+
+<script src="js/dsp.js"></script>
+<script src="js/emd.js"></script>
+<script src="js/signals.js"></script>
+<script src="js/plot.js"></script>
+<script src="js/page-limits.js"></script>
+</body>
+</html>

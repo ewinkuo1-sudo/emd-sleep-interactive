@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>互動演算法：一步一步跑 EMD — EMD × 睡眠訊號互動教學</title>
+<meta name="description" content="逐步執行 sifting 迭代：看極值點、上下包絡線、均值曲線與相減結果怎麼互動，可調 SD 停止準則與迭代上限，即時看 IMF 與 Hilbert 時頻譜。">
+<link rel="stylesheet" href="css/style.css">
+<script src="js/site.js"></script>
+</head>
+<body>
+<main>
+
+  <h1>互動演算法：一步一步跑 EMD</h1>
+  <p class="lead">
+    EMD 的核心只有一個迴圈，叫 <strong>sifting（篩選）</strong>。
+    這頁讓你單步執行它，每一步都看得到中間產物。所有計算都在你的瀏覽器裡即時發生。
+  </p>
+
+  <!-- ============================================ 演算法說明 -->
+  <div class="card">
+    <h2 style="margin-top:0">演算法（Huang et al. 1998）</h2>
+    <p style="font-size:0.95rem">對訊號 <code>x(t)</code>，令 <code>h₀ = x</code>，然後重複：</p>
+    <ol class="steps">
+      <li><strong>找出所有局部極大與局部極小</strong>。</li>
+      <li><strong>用三次樣條把所有極大值連成「上包絡線」</strong> <code>e_max(t)</code>，
+        所有極小值連成「下包絡線」 <code>e_min(t)</code>。</li>
+      <li><strong>算兩條包絡線的均值</strong>：<code>m(t) = (e_max + e_min) / 2</code>。</li>
+      <li><strong>相減</strong>：<code>h_{k+1} = h_k − m</code>。</li>
+      <li>檢查停止準則。沒過就回到步驟 1，用 <code>h_{k+1}</code> 重跑。</li>
+    </ol>
+    <p style="font-size:0.95rem">收斂後的 <code>h</code> 就是第一層 IMF。把它從原訊號裡扣掉，
+      剩下的殘餘再跑一次整個流程，得到第二層……直到殘餘變成單調函數（極值少於 3 個）為止。</p>
+
+    <h3>停止準則 SD</h3>
+    <div class="math">SD = Σ<sub>t</sub> ( h<sub>k</sub>(t) − h<sub>k+1</sub>(t) )² ／ Σ<sub>t</sub> h<sub>k</sub>(t)²</div>
+    <p style="font-size:0.95rem;margin-bottom:0">
+      原論文建議 SD 落在 <strong>0.2 ~ 0.3</strong> 之間就停。
+      <strong>這個門檻沒有理論依據，是經驗值。</strong>
+      設太大 → IMF 還沒「純」就出場，殘留低頻成分；設太小 → 過度 sifting，把物理上有意義的振幅變化磨平，
+      IMF 變成振幅幾乎固定的假訊號。你可以在下面自己調，親眼看差別。
+    </p>
+  </div>
+
+  <!-- ============================================ 訊號選擇 -->
+  <h2 id="signal">1. 選一個訊號</h2>
+  <div class="controls" role="group" aria-label="訊號設定">
+    <div class="ctrl">
+      <label for="sigSel">內建訊號</label>
+      <select id="sigSel">
+        <optgroup label="合成訊號">
+          <option value="two" selected>雙頻合成（1 Hz + 12 Hz）</option>
+          <option value="two-close">雙頻合成（8 Hz + 12 Hz，難分）</option>
+          <option value="three">三頻合成（1.5 + 8 + 30 Hz）</option>
+          <option value="chirp">Chirp 掃頻（2 → 25 Hz）</option>
+          <option value="noisy">雙頻 + 白雜訊</option>
+          <option value="intermittent">間歇高頻叢發（製造 mode mixing）</option>
+        </optgroup>
+        <optgroup label="模擬睡眠 EEG（非真實紀錄）">
+          <option value="eeg-W">W 期（清醒，alpha 為主）</option>
+          <option value="eeg-N1">N1 期（theta 為主）</option>
+          <option value="eeg-N2">N2 期（紡錘波 + K-複合波）</option>
+          <option value="eeg-N3">N3 期（delta 慢波）</option>
+          <option value="eeg-REM">REM 期（低振幅混合頻率）</option>
+        </optgroup>
+        <optgroup label="自己畫">
+          <option value="draw">滑鼠／手指手繪訊號</option>
+        </optgroup>
+      </select>
+    </div>
+    <div class="ctrl">
+      <label for="sdT">SD 停止門檻 <span class="val" id="sdTv">0.20</span></label>
+      <input type="range" id="sdT" min="0.01" max="1.0" step="0.01" value="0.2">
+    </div>
+    <div class="ctrl">
+      <label for="maxIt">最大迭代次數 <span class="val" id="maxItv">100</span></label>
+      <input type="range" id="maxIt" min="1" max="200" step="1" value="100">
+    </div>
+    <div class="ctrl">
+      <label for="maxImf">IMF 數量上限 <span class="val" id="maxImfv">8</span></label>
+      <input type="range" id="maxImf" min="1" max="12" step="1" value="8">
+    </div>
+  </div>
+
+  <div id="drawPanel" class="card" hidden>
+    <h3 style="margin-top:0">手繪訊號</h3>
+    <p style="font-size:0.9rem;color:var(--text-secondary)">
+      在下面的框裡按住拖曳，畫出你想要的波形（可以多次補畫）。放開後會自動重新取樣成 1024 點並分解。
+      試著畫一個「慢慢上下起伏、上面再加一串小抖動」的形狀，看 EMD 怎麼把它們分開。
+    </p>
+    <div class="chart-wrap" style="cursor:crosshair">
+      <canvas id="drawCv" height="200" aria-label="手繪訊號畫布"></canvas>
+    </div>
+    <p style="margin:0.6rem 0 0"><button class="btn" id="drawClear" type="button">清空重畫</button></p>
+  </div>
+
+  <figure class="figure">
+    <div class="chart-wrap"><canvas id="srcCv" aria-label="目前選用訊號的時域波形"></canvas></div>
+    <figcaption id="srcCap"></figcaption>
+  </figure>
+
+  <!-- ============================================ 逐步 sifting -->
+  <h2 id="sifting">2. 逐步 sifting</h2>
+  <p>
+    下面顯示的是<strong>目前這一層 IMF</strong> 的 sifting 過程。
+    按「單步 sifting」跑一次迭代；按「自動播放」連續跑到收斂。
+  </p>
+
+  <div class="controls" role="group" aria-label="sifting 控制">
+    <button class="btn primary" id="btnStep" type="button">單步 sifting ▶</button>
+    <button class="btn" id="btnPlay" type="button">自動播放 ▶▶</button>
+    <button class="btn" id="btnFinish" type="button">跑完這層 IMF ▶|</button>
+    <button class="btn" id="btnNextImf" type="button">扣掉，換下一層 IMF ↓</button>
+    <button class="btn" id="btnReset" type="button">重設 ↺</button>
+  </div>
+
+  <div class="controls" role="group" aria-label="顯示時間窗">
+    <div class="ctrl">
+      <label for="winW">顯示時間窗寬度 <span class="val" id="winWv">全部</span></label>
+      <input type="range" id="winW" min="0" max="100" step="1" value="100">
+    </div>
+    <div class="ctrl">
+      <label for="winS">視窗起點 <span class="val" id="winSv">0.00 s</span></label>
+      <input type="range" id="winS" min="0" max="100" step="0.5" value="0">
+    </div>
+    <div class="ctrl" style="max-width:34ch">
+      <label>&nbsp;</label>
+      <span style="font-size:0.8rem;color:var(--text-secondary)">
+        訊號密集時把視窗縮小，才看得清楚極值點與包絡線。極值超過 150 個時標記會自動隱藏。
+      </span>
+    </div>
+  </div>
+
+  <div class="card" id="siftStatus"></div>
+
+  <figure class="figure">
+    <div class="chart-wrap"><canvas id="siftMain" aria-label="目前 sifting 工作序列、極值點、上下包絡線與均值曲線"></canvas></div>
+    <div class="legend" id="siftLegend"></div>
+    <figcaption>
+      上包絡線穿過所有<strong>局部極大</strong>，下包絡線穿過所有<strong>局部極小</strong>，兩者由三次樣條內插。
+      虛線是兩條包絡的均值 <code>m(t)</code>——它代表這個序列「局部的平均水位」。
+      sifting 就是把這個水位一直扣掉，直到序列圍繞著零上下對稱振盪為止。
+    </figcaption>
+  </figure>
+
+  <figure class="figure">
+    <div class="chart-wrap"><canvas id="siftResult" aria-label="相減結果 h - m"></canvas></div>
+    <div class="legend" id="siftResLegend"></div>
+    <figcaption>相減結果 <code>h − m</code>。這就是下一次迭代的輸入。</figcaption>
+  </figure>
+
+  <!-- ============================================ 完整分解 -->
+  <h2 id="full">3. 完整分解結果</h2>
+  <p>這一區直接跑完整個 EMD（用上面設定的參數），顯示每一層 IMF 與殘餘。</p>
+
+  <figure class="figure">
+    <div id="imfStack"></div>
+    <div class="legend" id="imfLegend"></div>
+    <figcaption>IMF 由高頻到低頻排列。右上角標示該層的 Hilbert 平均瞬時頻率與能量佔比。</figcaption>
+  </figure>
+
+  <div class="card">
+    <h3 style="margin-top:0">各層 IMF 的量化指標</h3>
+    <div class="table-scroll"><table class="data" id="imfTable">
+      <caption class="sr-only">各層 IMF 的頻率、振幅、能量與 IMF 條件檢查</caption>
+    </table></div>
+    <p style="font-size:0.88rem;color:var(--text-secondary);margin-bottom:0">
+      <strong>IMF 條件</strong>指 Huang(1998) 定義的兩個要求：
+      (a) 整段訊號中，極值數與零交越數相差不超過 1；
+      (b) 任一點上、由極大與極小定義的包絡線均值為零。
+      實務上只檢查 (a)，(b) 用 SD 門檻近似。
+    </p>
+  </div>
+
+  <figure class="figure">
+    <div class="chart-wrap"><canvas id="hhtCv" aria-label="所有 IMF 疊加而成的 Hilbert 時頻譜"></canvas></div>
+    <figcaption>
+      <strong>Hilbert 時頻譜（Hilbert spectrum）</strong>：把每一層 IMF 的瞬時頻率與瞬時振幅畫在同一張時間-頻率平面上，
+      色階為能量（對數壓縮）。這是 Hilbert-Huang 轉換（HHT）的最終產物，
+      也是 EMD 相較於傅立葉頻譜最直接的價值——<strong>它同時保留了時間與頻率</strong>。
+      左右兩端常見的亮點是端點效應造成的假象。
+    </figcaption>
+  </figure>
+
+  <figure class="figure">
+    <div class="chart-wrap"><canvas id="reconCv" aria-label="重建誤差"></canvas></div>
+    <div class="legend" id="reconLegend"></div>
+    <figcaption id="reconCap"></figcaption>
+  </figure>
+
+  <div class="note">
+    <p><strong>幾個值得自己動手試的：</strong></p>
+    <ul style="margin:0.4rem 0 0">
+      <li>把 <strong>SD 門檻調到 0.01</strong>：迭代次數暴增，IMF 的振幅起伏被磨平——這叫<em>過度 sifting</em>。</li>
+      <li>把 <strong>SD 門檻調到 0.8</strong>：一兩步就收斂，但 IMF 裡還混著低頻成分，不夠「純」。</li>
+      <li>選<strong>「雙頻合成（8 Hz + 12 Hz）」</strong>：兩個頻率只差 1.5 倍，EMD 分不開，會混成一層。
+        Rilling &amp; Flandrin (2008) 的分析指出，EMD 大致需要頻率比 &gt; 2 才分得開。</li>
+      <li>選<strong>「間歇高頻叢發」</strong>：看 IMF 1 怎麼在叢發區間變成高頻、其他時間變成低頻——
+        這就是 <a href="limits.html"><strong>mode mixing</strong></a>。</li>
+    </ul>
+  </div>
+
+</main>
+
+<script src="js/dsp.js"></script>
+<script src="js/emd.js"></script>
+<script src="js/signals.js"></script>
+<script src="js/plot.js"></script>
+<script src="js/page-emd.js"></script>
+</body>
+</html>
