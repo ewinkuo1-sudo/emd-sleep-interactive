@@ -3,7 +3,7 @@
 > 為 2026-09-24 **黃鍔（Norden E. Huang）院士演講**預備的課堂作業。
 > 主題：經驗模態分解（Empirical Mode Decomposition, EMD）與它在睡眠訊號分析上的意義。
 
-**線上版：** _（Zeabur 部署完成後填入網址）_
+**線上版：** <https://ewinkuo1-sudo.github.io/emd-sleep-interactive/>（GitHub Pages，`main` 分支每次 push 自動重新部署）
 **原始碼：** <https://github.com/ewinkuo1-sudo/emd-sleep-interactive>
 
 ---
@@ -153,31 +153,24 @@ npx serve .
 
 ---
 
-## 部署到 Zeabur
+## 部署
 
-本 repo 已備妥 Zeabur 純靜態部署所需的一切：
+**目前部署平台：GitHub Pages**，來源為 `main` 分支根目錄，每次 push 約 1 分鐘內自動重新部署。
+純靜態、無 build step，所以不需要任何 workflow 檔或 build 設定。
 
-- `index.html` 在**根目錄**（Zeabur 的靜態偵測依據）
-- `zbpack.json` 內含 `{"output_dir": "."}`，**明確指定**以根目錄作為靜態輸出，不做任何 build
-- **刻意不放 `package.json`** — 有 `package.json` 會讓 zbpack 判定為 Node.js 專案並嘗試 build，破壞靜態部署
+### 為什麼不是 Zeabur
 
-### 手動步驟
+本作業原規劃部署至 Zeabur。2026-09-19 實測時，Zeabur 已改為**使用者自備伺服器**的架構：
+[官方 pricing 頁](https://zeabur.com/pricing)的 Free 方案寫明
 
-1. 開 <https://zeabur.com>，用 **GitHub 帳號登入**並授權
-2. **Create Project** → 選一個區域（建議 `Hong Kong` 或 `Tokyo`，離台灣近）
-3. 專案內點 **Add Service** → **Git** → **GitHub**
-4. 若是第一次使用，點 **Configure GitHub App**，把 `ewinkuo1-sudo/emd-sleep-interactive` 加進授權的 repo 清單
-5. 在 repo 清單選 **`emd-sleep-interactive`**，分支選 `main`
-6. Zeabur 會自動判定為 **Static** 服務並開始部署（約 30 秒～1 分鐘）
-7. 部署完成後進該服務的 **Networking** 分頁 → **Generate Domain**，輸入一個子網域名稱（例如 `emd-sleep`），
-   取得 `https://<你取的名字>.zeabur.app`
-8. 開那個網址確認五個頁面都能跑，圖表有正常繪出
-9. 把網址填回本 README 最上方的「線上版」欄位，commit 並 push
+> Manageable own servers: 1 — Servers you purchased and own elsewhere (including devices connected via Wonder Mesh) — **not bought from Zeabur**, but you can still manage them from the Zeabur dashboard.
 
-> **如果 Zeabur 誤判成別的類型**（例如偵測到 Node）：
-> 進服務的 **Settings**，確認 Build Command 與 Start Command 都是空的；
-> 或確認 `zbpack.json` 有正確 push 上去。
-> 也可以在服務設定裡把 **Plan Type** 手動改成 `static`。
+Free / Dev / Pro / Team 四個方案皆以「可管理幾台自己的伺服器」計價，已沒有 Zeabur 代管的免費靜態託管層；
+在沒有綁定伺服器的狀態下，控制台的「建立專案」按鈕為停用。
+因此改以 GitHub Pages 部署——同樣是公開上線的靜態網站、與本 repo 連動、自動重部署，符合作業要求的實質目的。
+
+`zbpack.json` 仍保留在 repo 內：若日後 Zeabur 恢復代管方案，或綁定了自己的伺服器，
+以 Git 服務匯入本 repo 即可直接以 Static 類型部署（`output_dir: "."`，不需 build）。
 
 ---
 

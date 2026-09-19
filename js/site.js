@@ -79,6 +79,7 @@
       'AI（Claude）參與了程式碼撰寫、文獻搜尋與文案潤飾；文獻連結皆經實際開啟確認，' +
       '未找到的內容一律標示「未找到」而非臆測。</p>' +
       '<p style="color:var(--text-muted)">課程作業 · 為 2026-09-24 黃鍔院士演講預備 · ' +
+      '<a href="https://ewinkuo1-sudo.github.io/emd-sleep-interactive/">線上版（GitHub Pages）</a> · ' +
       '<a href="https://github.com/ewinkuo1-sudo/emd-sleep-interactive">GitHub 原始碼</a></p>' +
       '</div>';
     document.body.appendChild(f);
