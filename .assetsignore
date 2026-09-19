@@ -1,0 +1,10 @@
+.git
+.github
+.shots
+.wrangler
+node_modules
+test
+.gitignore
+.assetsignore
+wrangler.jsonc
+zbpack.json

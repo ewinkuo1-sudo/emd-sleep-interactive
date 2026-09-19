@@ -3,7 +3,9 @@
 > 為 2026-09-24 **黃鍔（Norden E. Huang）院士演講**預備的課堂作業。
 > 主題：經驗模態分解（Empirical Mode Decomposition, EMD）與它在睡眠訊號分析上的意義。
 
-**線上版：** <https://ewinkuo1-sudo.github.io/emd-sleep-interactive/>（GitHub Pages，`main` 分支每次 push 自動重新部署）
+**線上版（雙平台）：**
+- GitHub Pages：<https://ewinkuo1-sudo.github.io/emd-sleep-interactive/>（`main` 每次 push 自動重新部署）
+- Cloudflare Workers：<https://emd-sleep-interactive.emd-sleep-interactive.workers.dev/>（靜態資產模式，`npx wrangler deploy` 發佈）
 **原始碼：** <https://github.com/ewinkuo1-sudo/emd-sleep-interactive>
 
 ---
@@ -155,8 +157,18 @@ npx serve .
 
 ## 部署
 
-**目前部署平台：GitHub Pages**，來源為 `main` 分支根目錄，每次 push 約 1 分鐘內自動重新部署。
-純靜態、無 build step，所以不需要任何 workflow 檔或 build 設定。
+純靜態、無 build step，同一份根目錄同時部署到兩個平台，互為備援：
+
+| 平台 | 網址 | 更新方式 | 設定檔 |
+|---|---|---|---|
+| **GitHub Pages** | <https://ewinkuo1-sudo.github.io/emd-sleep-interactive/> | push `main` 後約 1 分鐘自動重部署 | 無（Pages 來源設為 `main` / 根目錄） |
+| **Cloudflare Workers**（靜態資產） | <https://emd-sleep-interactive.emd-sleep-interactive.workers.dev/> | `npx wrangler deploy` | `wrangler.jsonc`、`.assetsignore`、`_redirects` |
+
+Cloudflare 端的三個檔案：
+
+- `wrangler.jsonc` — `assets.directory: "."` 以根目錄為靜態資產；`html_handling: "none"` 讓 `emd.html` 這類連結原樣提供，不被改寫成無副檔名網址（否則 `site.js` 的目前頁面判斷會失效）
+- `.assetsignore` — 排除 `.git`、`.shots`、`test/`、設定檔等不該上線的內容
+- `_redirects` — `/  /index.html  200`，因為關閉 `html_handling` 後根路徑不會自動對應到 `index.html`
 
 ### 為什麼不是 Zeabur
 
