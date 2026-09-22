@@ -5,10 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>互動演算法：一步一步跑 EMD — EMD × 睡眠訊號互動教學</title>
 <meta name="description" content="逐步執行 sifting 迭代：看極值點、上下包絡線、均值曲線與相減結果怎麼互動，可調 SD 停止準則與迭代上限，即時看 IMF 與 Hilbert 時頻譜。">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M2 16c4-12 8-12 12 0s8 12 12 0' fill='none' stroke='%232a78d6' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="css/style.css">
 <script src="js/site.js"></script>
 </head>
 <body>
+<noscript><p class="noscript">這個網站的每一張圖都是瀏覽器即時算出來的，需要開啟 JavaScript 才能顯示導覽列、圖表與互動控制。</p></noscript>
 <main>
 
   <h1>互動演算法：一步一步跑 EMD</h1>
@@ -124,7 +126,7 @@
       <input type="range" id="winS" min="0" max="100" step="0.5" value="0">
     </div>
     <div class="ctrl" style="max-width:34ch">
-      <label>&nbsp;</label>
+      <span class="label-spacer" aria-hidden="true">&nbsp;</span>
       <span style="font-size:0.8rem;color:var(--text-secondary)">
         訊號密集時把視窗縮小，才看得清楚極值點與包絡線。極值超過 150 個時標記會自動隱藏。
       </span>

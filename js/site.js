@@ -12,6 +12,15 @@
 
   var STORE = 'emd-site-theme';
 
+  // 隱私模式或某些 file:// 情境下存取 localStorage 會直接丟 SecurityError；
+  // 不能讓它把整個導覽列／頁尾一起拖下水。
+  function readTheme() {
+    try { return localStorage.getItem(STORE) || 'auto'; } catch (e) { return 'auto'; }
+  }
+  function saveTheme(t) {
+    try { localStorage.setItem(STORE, t); } catch (e) { /* 存不了就只在這次生效 */ }
+  }
+
   function currentFile() {
     var p = location.pathname.split('/').pop();
     return p === '' ? 'index.html' : p;
@@ -56,9 +65,9 @@
     btn.className = 'theme-toggle';
     btn.type = 'button';
     btn.addEventListener('click', function () {
-      var cur = localStorage.getItem(STORE) || 'auto';
+      var cur = readTheme();
       var next = cur === 'auto' ? 'light' : cur === 'light' ? 'dark' : 'auto';
-      localStorage.setItem(STORE, next);
+      saveTheme(next);
       applyTheme(next);
     });
     nav.appendChild(btn);
@@ -74,8 +83,8 @@
       '<div class="inner">' +
       '<p><strong>本網站由人與 AI 協作完成。</strong>作者：Ewin Kuo（陽明交通大學 生醫光電研究所）。' +
       'EMD／Hilbert 轉換／FFT 的演算法程式碼由 vanilla JavaScript 從頭實作，' +
-      '並以成分已知的合成訊號驗證（<code>node test/test-emd.mjs</code> 44 項＋' +
-      '<code>node test/test-spindle.mjs</code> 6 項，共 50 項全數通過）。' +
+      '並以成分已知的合成訊號驗證（<code>node test/test-emd.mjs</code>、' +
+      '<code>node test/test-spindle.mjs</code>，每次 push 由 GitHub Actions 自動重跑）。' +
       'AI（Claude）參與了程式碼撰寫、文獻搜尋與文案潤飾；文獻連結皆經實際開啟確認，' +
       '未找到的內容一律標示「未找到」而非臆測。</p>' +
       '<p style="color:var(--text-muted)">課程作業 · 為 2026-09-24 黃鍔院士演講預備 · ' +
@@ -87,15 +96,18 @@
   }
 
   // 主題要在第一次繪圖前就定好，避免閃爍
-  applyTheme(localStorage.getItem(STORE) || 'auto');
+  applyTheme(readTheme());
 
   document.addEventListener('DOMContentLoaded', function () {
     buildHeader();
     buildFooter();
-    applyTheme(localStorage.getItem(STORE) || 'auto');
+    applyTheme(readTheme());
   });
 
-  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () {
-    if ((localStorage.getItem(STORE) || 'auto') === 'auto' && window.Plot) window.Plot.redrawAll();
-  });
+  var mq = window.matchMedia('(prefers-color-scheme: dark)');
+  function onSchemeChange() {
+    if (readTheme() === 'auto' && window.Plot) window.Plot.redrawAll();
+  }
+  if (mq.addEventListener) mq.addEventListener('change', onSchemeChange);
+  else if (mq.addListener) mq.addListener(onSchemeChange);   // 舊版 Safari
 })();

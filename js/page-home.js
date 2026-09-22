@@ -111,6 +111,13 @@
       return best;
     }
     var hit2 = nearest(target2), hit1 = nearest(target1);
+    if (!hit1 || !hit2) {
+      // 分不出任何 IMF（理論上只有極端參數會發生）——別讓下面的 hit2.fH 直接炸掉
+      el('d1-verify').innerHTML =
+        '<h3 style="margin-top:0">當場驗證：EMD 有沒有算對？</h3>' +
+        '<p style="margin-bottom:0">這組參數分不出任何 IMF，沒有可比對的頻率。試著調整 f₁、f₂ 或振幅比。</p>';
+      return;
+    }
 
     el('d1-verify').innerHTML =
       '<h3 style="margin-top:0">當場驗證：EMD 有沒有算對？</h3>' +
@@ -138,8 +145,16 @@
       '這是 EMD 的<a href="limits.html">已知解析度極限</a>，不是 bug。</p>';
   }
 
+  // 拖曳時只更新數字，EMD 與整疊圖等手停下來（~80 ms）再重算
+  var d1Timer = null;
   [d1.f1, d1.f2, d1.a2].forEach(function (s) {
-    s.addEventListener('input', renderDemo1);
+    s.addEventListener('input', function () {
+      d1.f1v.textContent = parseFloat(d1.f1.value).toFixed(1);
+      d1.f2v.textContent = parseFloat(d1.f2.value).toFixed(1);
+      d1.a2v.textContent = parseFloat(d1.a2.value).toFixed(2);
+      clearTimeout(d1Timer);
+      d1Timer = setTimeout(function () { requestAnimationFrame(renderDemo1); }, 80);
+    });
   });
 
   // ---------------------------------------------------------------- 示範 2

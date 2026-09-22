@@ -1,0 +1,19 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  node-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # No package.json on purpose (keeps the repo a pure static site for Zeabur/Cloudflare);
+      # the tests are dependency-free and run directly under Node.
+      - run: node test/test-emd.mjs
+      - run: node test/test-spindle.mjs

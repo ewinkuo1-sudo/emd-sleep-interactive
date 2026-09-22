@@ -66,6 +66,7 @@ EMD、Hilbert 轉換、FFT、三次樣條、紡錘波偵測全部以 vanilla Jav
 
 - **端點處理用 Rilling et al. (2003) 的鏡像對稱延伸**（`boundaryConditions`），不是簡單的重複或補零。三次樣條在端點缺乏極值支撐時會發散，這是 EMD 最常見的實作瑕疵來源。
 - **停止準則 SD 用「和的比值」而非原文的逐點相除**：`SD = Σ(h_k − h_{k+1})² / Σ h_k²`。原文的逐點形式在 `h_k(t) ≈ 0` 處會爆炸，目前絕大多數實作都改用這個版本。
+- **對照組的 FIR 帶通只做一次中心對齊卷積**。對稱 FIR 本身就是零相位，不需要像 IIR 那樣正反各跑一次；早期版本多卷了一次，等於把頻率響應平方，帶緣從 −6 dB 變成 −12 dB，讓「固定濾波器組」比它該有的樣子更窄。現在有測試鎖住帶緣增益 ≈ 0.5 與 lag = 0。
 - **FFT 用 Bluestein 處理非 2 冪長度**。睡眠 EEG 常見的取樣點數（例如 100 Hz × 10 s = 1000 點）不是 2 的冪，補零會扭曲 Hilbert 解析訊號、讓瞬時頻率失真。
 - **色彩通過色盲可辨識度檢查**：藍／橘／青三色在明暗兩模式下，all-pairs CVD ΔE ≥ 8、一般視覺 ΔE ≥ 15。均值曲線刻意用虛線 ink 而非第四個色相，避免落入不安全的配色組合。圖例一律顯示，色彩不單獨承載意義。
 
@@ -76,9 +77,12 @@ EMD、Hilbert 轉換、FFT、三次樣條、紡錘波偵測全部以 vanilla Jav
 演算法正確性用**成分已知的合成訊號**驗證，可自行重跑（不需安裝任何套件）：
 
 ```bash
-node test/test-emd.mjs       # 44 項檢查
-node test/test-spindle.mjs   #  6 項檢查
+node test/test-emd.mjs       # FFT / Hilbert / EMD / 帶通濾波 / 邊界情況
+node test/test-spindle.mjs   # 紡錘波偵測器
 ```
+
+每次 push 到 `main` 或開 PR，`.github/workflows/test.yml` 會在 GitHub Actions 上自動重跑這兩個檔案；
+任何一項失敗整個 workflow 就是紅的。
 
 ### `test-emd.mjs` 驗了什麼
 

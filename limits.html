@@ -5,10 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>EMD 的極限 — EMD × 睡眠訊號互動教學</title>
 <meta name="description" content="誠實面對 EMD 的已知弱點：mode mixing、端點效應、缺乏數學基礎、停止準則靠經驗、頻率解析度限制，以及 EEMD / CEEMDAN 這些補丁各自的代價。每個弱點都有可互動的現場示範。">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M2 16c4-12 8-12 12 0s8 12 12 0' fill='none' stroke='%232a78d6' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="css/style.css">
 <script src="js/site.js"></script>
 </head>
 <body>
+<noscript><p class="noscript">這個網站的每一張圖都是瀏覽器即時算出來的，需要開啟 JavaScript 才能顯示導覽列、圖表與互動控制。</p></noscript>
 <main>
 
   <h1>EMD 的極限</h1>
@@ -134,7 +136,7 @@
       <input type="range" id="resAmp" min="0.1" max="2" step="0.05" value="1">
     </div>
     <div class="ctrl" style="max-width:40ch">
-      <label>&nbsp;</label>
+      <span class="label-spacer" aria-hidden="true">&nbsp;</span>
       <span style="font-size:0.8rem;color:var(--text-secondary)">
         固定 f₁ = 8 Hz。把頻率比拉到 1.5（= 12 Hz）就是 alpha 與紡錘波的真實情況。
       </span>
@@ -213,8 +215,8 @@
       <p>教科書上的說法是：每多一次 sifting 都會把振幅的起伏磨平一點，
         跑太多次後 IMF 會變成振幅幾乎固定的純調頻訊號，
         而振幅變化本身往往才是要研究的生理現象。</p>
-      <p style="margin-bottom:0"><span class="tag warn">但本站實測沒能重現這個效應</span>
-        詳見下方的實測結果與說明——<strong>這是一個誠實的否定結果</strong>。</p>
+      <p style="margin-bottom:0"><span class="tag">現場驗證</span>
+        這個說法在本站的實作上成不成立，交給下方的實測表判定——結論由程式當場算出，不預先寫死。</p>
     </div>
   </div>
 

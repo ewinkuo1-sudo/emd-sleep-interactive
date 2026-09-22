@@ -222,6 +222,8 @@
     winLen = winLen || 128;
     hop = hop || Math.max(1, Math.round(winLen / 16));
     var n = x.length;
+    // 訊號比窗短時，把窗縮到訊號長度（偶數），否則會讀到陣列外、整張圖變 NaN
+    if (n < winLen) winLen = Math.max(2, n - (n % 2));
     var nt = Math.max(1, Math.floor((n - winLen) / hop) + 1);
     var nf = Math.floor(winLen / 2) + 1;
     var win = new Float64Array(winLen);
@@ -237,7 +239,9 @@
     return { nt: nt, nf: nf, fMax: fs / 2, power: out, winLen: winLen, hop: hop, fs: fs };
   }
 
-  /* 簡易 FIR band-pass（窗函數法，Hamming）——睡眠頁「固定濾波器組」對照組用。 */
+  /* 簡易 FIR band-pass（窗函數法，Hamming）——睡眠頁「固定濾波器組」對照組用。
+   * 對稱 FIR 以中心對齊做卷積本身就是零相位（群延遲 = 0），不需要像 IIR 那樣
+   * 正反各跑一次；多跑一次只會把頻率響應平方，讓 −6 dB 的帶緣變成 −12 dB。 */
   function bandpass(x, fs, f1, f2, taps) {
     taps = taps || 257;
     if (taps % 2 === 0) taps += 1;
@@ -251,8 +255,8 @@
       var win = 0.54 - 0.46 * Math.cos(2 * Math.PI * i / (taps - 1));
       h[i] = (lp2 - lp1) * win;
     }
-    // 零相位：卷積兩次（filtfilt 風格，相位互相抵銷），邊界用鏡像延伸
-    return convSym(convSym(x, h), h);
+    // 單次中心對齊卷積即為零相位；邊界用鏡像延伸
+    return convSym(x, h);
   }
 
   function convSym(x, h) {
@@ -264,7 +268,8 @@
         var idx = i + k - mid;
         if (idx < 0) idx = -idx;                       // 鏡像
         if (idx >= n) idx = 2 * n - 2 - idx;
-        if (idx < 0) idx = 0;
+        if (idx < 0) idx = 0;                          // 訊號比濾波器還短時，鏡射一次仍可能出界
+        if (idx >= n) idx = n - 1;
         acc += h[k] * x[idx];
       }
       y[i] = acc;
