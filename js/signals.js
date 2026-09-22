@@ -90,7 +90,10 @@
         x[i] += 0.4 * 0.5 * (1 - Math.cos(2 * Math.PI * p)) * Math.sin(2 * Math.PI * 30 * t);
       }
     }
-    return { x: x, t: timeAxis(n, fs), fs: fs, label: '間歇叢發（示範 mode mixing）' };
+    return {
+      x: x, t: timeAxis(n, fs), fs: fs, label: '間歇叢發（示範 mode mixing）',
+      burst: { i0: burstStart, i1: burstEnd, t0: burstStart / fs, t1: burstEnd / fs, f: 30 }
+    };
   }
 
   /**
@@ -111,6 +114,7 @@
     var nz = makeNoise(opts.seed === undefined ? 11 : opts.seed);
     var x = new Float64Array(n);
     var notes = [];
+    var events = [];   // 合成時放進去的紡錘波真值 {t0, t1, f}，頁面與測試直接讀這裡，不另外手抄
 
     function addSine(f, a, phase) {
       for (var i = 0; i < n; i++) x[i] += a * Math.sin(2 * Math.PI * f * i / fs + (phase || 0));
@@ -123,6 +127,7 @@
       var s = Math.floor(tStart * fs), e = Math.min(n, s + Math.floor(dur * fs));
       var len = e - s;
       var ramp = Math.max(1, Math.floor((taperSec === undefined ? 0.2 : taperSec) * fs));
+      events.push({ t0: s / fs, t1: e / fs, f: fCenter, amp: amp });
       for (var i = s; i < e; i++) {
         var k = i - s, win;
         if (k < ramp) win = 0.5 * (1 - Math.cos(Math.PI * k / ramp));
@@ -189,7 +194,8 @@
     return {
       x: x, t: timeAxis(n, fs), fs: fs,
       label: '模擬睡眠 EEG — ' + stage + ' 期',
-      stage: stage, notes: notes, unit: 'µV'
+      stage: stage, notes: notes, unit: 'µV',
+      events: events
     };
   }
 

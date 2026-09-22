@@ -260,6 +260,42 @@ console.log('\n[8] 邊界情況');
   const tiny = Float64Array.from([0, 1, 0, -1, 0]);
   const r3 = EMD.emd(tiny, { maxImf: 3 });
   check('極短訊號不當掉', Array.isArray(r3.imfs));
+
+  // 訊號比 STFT 窗短：以前會讀到陣列外、整張圖 NaN
+  const shortSig = new Float64Array(64).map((_, i) => Math.sin(i));
+  const S = DSP.stft(shortSig, 100, 128);
+  check('STFT 訊號短於窗長時不產生 NaN', ![...S.power].some(Number.isNaN), `nt=${S.nt}, nf=${S.nf}`);
+}
+
+// ------------------------------------------------------------------ 9
+console.log('\n[9] FIR 帶通濾波（睡眠頁對照組）');
+{
+  // 對稱 FIR 中心對齊卷積 = 零相位；帶緣（f1、f2）應在 −6 dB ≈ 0.5，帶中央 ≈ 1，帶外 ≈ 0
+  const fs = 100, n = 4000;
+  function gainAt(f) {
+    const x = new Float64Array(n).map((_, i) => Math.sin(2 * Math.PI * f * i / fs));
+    const y = DSP.bandpass(x, fs, 11, 16);
+    let m = 0;
+    for (let i = 1000; i < 3000; i++) m = Math.max(m, Math.abs(y[i]));
+    return m;
+  }
+  const gMid = gainAt(13.5), gLo = gainAt(11), gHi = gainAt(16), gOut = gainAt(8);
+  check('帶中央 13.5 Hz 增益 ≈ 1', Math.abs(gMid - 1) < 0.02, gMid.toFixed(3));
+  check('帶緣 11 / 16 Hz 增益 ≈ 0.5（−6 dB，非平方後的 0.25）',
+    Math.abs(gLo - 0.5) < 0.05 && Math.abs(gHi - 0.5) < 0.05, `${gLo.toFixed(3)} / ${gHi.toFixed(3)}`);
+  check('帶外 8 Hz 增益 ≈ 0', gOut < 0.01, gOut.toFixed(4));
+
+  // 零相位：輸出與輸入在帶中央沒有時間偏移
+  const f = 13.5;
+  const x = new Float64Array(n).map((_, i) => Math.sin(2 * Math.PI * f * i / fs));
+  const y = DSP.bandpass(x, fs, 11, 16);
+  let best = -Infinity, bestLag = 0;
+  for (let lag = -5; lag <= 5; lag++) {
+    let s = 0;
+    for (let i = 1000; i < 3000; i++) s += x[i] * y[i + lag];
+    if (s > best) { best = s; bestLag = lag; }
+  }
+  check('零相位（最大相關落在 lag = 0）', bestLag === 0, `lag = ${bestLag}`);
 }
 
 console.log(`\n======================================`);

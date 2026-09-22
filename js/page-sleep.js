@@ -23,10 +23,8 @@
 
   var state = { stage: 'N2', view: 'both', sig: null, emdRes: null };
 
-  var TRUTH = {
-    N2: [{ t0: 2.0, t1: 3.0, f: 13.5 }, { t0: 6.4, t1: 7.4, f: 12.5 }],
-    W: [], N1: [], N3: [], REM: []
-  };
+  /** 紡錘波真值直接從訊號產生器帶出來（signals.js 的 events），不在這裡手抄一份。 */
+  function truthOf(sig) { return sig.events || []; }
 
   // ---------------------------------------------------------------- 主流程
   function load() {
@@ -34,9 +32,9 @@
     state.sig = sig;
     var t = arr(sig.t);
 
-    var bands = state.stage === 'N2' ? TRUTH.N2.map(function (g) {
+    var bands = truthOf(sig).map(function (g) {
       return { x0: g.t0, x1: g.t1, color: '--series-2', alpha: 0.13, label: '紡錘波（真值）' };
-    }) : [];
+    });
 
     Plot.line(el('rawCv'), {
       height: 200,
@@ -220,8 +218,10 @@
     el('spB0v').textContent = o.band[0].toFixed(1);
     el('spB1v').textContent = o.band[1].toFixed(1);
 
+    // renderEmd() 已經對同一段訊號做過 EMD，直接共用，不再重算一次
+    o.decomposition = state.emdRes;
     var r = Spindle.detect(sig.x, sig.fs, o);
-    var truth = TRUTH[state.stage] || [];
+    var truth = truthOf(sig);
 
     function overlaps(e, g) { return e.t1 > g.t0 - 0.35 && e.t0 < g.t1 + 0.35; }
     var tp = truth.filter(function (g) { return r.events.some(function (e) { return overlaps(e, g); }); });
@@ -299,7 +299,21 @@
       { color: '--series-2', label: '偵測到的事件' }
     ]);
 
-    if (r.imfIndex < 0) return;
+    if (r.imfIndex < 0) {
+      // 沒有任何 IMF 的能量落在帶內：把下面兩張圖清成「無資料」，不能留上一個分期的舊圖
+      var empty = { x: t, y: t.map(function () { return NaN; }), color: '--series-1', label: '—' };
+      Plot.line(el('spEnv'), {
+        height: 180, title: '沒有 IMF 的能量落在 ' + o.band[0] + '–' + o.band[1] + ' Hz 帶內',
+        xLabel: '時間 (s)', yLabel: 'µV', xUnit: 's', series: [empty], yRange: [0, 1]
+      });
+      Plot.line(el('spFreq'), {
+        height: 180, title: '（無可顯示的瞬時頻率）',
+        xLabel: '時間 (s)', yLabel: 'Hz', xUnit: 's', series: [empty], yRange: [0, 40]
+      });
+      Plot.legend(el('spEnvLegend'), []);
+      Plot.legend(el('spFreqLegend'), []);
+      return;
+    }
 
     // ---- 包絡與門檻
     Plot.line(el('spEnv'), {

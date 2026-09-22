@@ -14,7 +14,7 @@
 
   --text-primary:   #0b0b0b;
   --text-secondary: #52514e;
-  --text-muted:     #898781;
+  --text-muted:     #6b6a65;   /* 白底 4.9:1；原 #898781 只有 3.4:1，用在小字上不夠 */
 
   --grid:           #e1e0d9;
   --axis:           #c3c2b7;
@@ -30,6 +30,10 @@
   --good:           #0ca30c;
   --warning:        #fab219;
   --critical:       #d03b3b;
+  /* 狀態色當「文字」用時要更深才過 AA（4.5:1）；當邊框／底色時維持上面的鮮色 */
+  --good-ink:       #0a7a0a;
+  --warning-ink:    #8a5a00;
+  --critical-ink:   #b32c2c;
 
   /* 連續（sequential）藍色階，用於 Hilbert 時頻圖 */
   --seq-100: #cde2fb; --seq-200: #9ec5f4; --seq-300: #6da7ec; --seq-400: #3987e5;
@@ -61,6 +65,9 @@
     --good:           #0ca30c;
     --warning:        #fab219;
     --critical:       #d03b3b;
+    --good-ink:       #4fc44f;
+    --warning-ink:    #fab219;
+    --critical-ink:   #f07070;
     --seq-100: #0d366b; --seq-200: #184f95; --seq-300: #256abf; --seq-400: #3987e5;
     --seq-500: #5598e7; --seq-600: #86b6ef; --seq-700: #cde2fb;
   }
@@ -82,6 +89,9 @@
   --series-3:       #199e70;
   --accent:         #3987e5;
   --accent-soft:    #16242f;
+  --good-ink:       #4fc44f;
+  --warning-ink:    #fab219;
+  --critical-ink:   #f07070;
   --seq-100: #0d366b; --seq-200: #184f95; --seq-300: #256abf; --seq-400: #3987e5;
   --seq-500: #5598e7; --seq-600: #86b6ef; --seq-700: #cde2fb;
 }
@@ -90,6 +100,24 @@
 * { box-sizing: border-box; }
 
 html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* 頂欄是 sticky，錨點跳轉後標題會被它蓋住；留出頂欄高度 */
+[id] { scroll-margin-top: 4.5rem; }
+
+/* 鍵盤操作時的焦點框：所有可互動元件一致 */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.seg button:focus-visible { outline-offset: -2px; }
+
+.noscript {
+  margin: 0; padding: 0.8rem 1rem;
+  background: var(--warning); color: #0b0b0b;
+  text-align: center; font-weight: 600;
+}
 
 body {
   margin: 0;
@@ -201,7 +229,9 @@ main { max-width: 1120px; margin: 0 auto; padding: 1.5rem 1rem 5rem; }
   padding: 0.5rem;
   position: relative;
 }
-canvas { display: block; width: 100%; touch-action: none; }
+canvas { display: block; width: 100%; }
+/* 只有手繪畫布需要攔截觸控手勢；其他圖表若也設 touch-action:none，手機上手指落在圖上就無法捲動頁面 */
+#drawCv { touch-action: none; }
 
 .legend {
   display: flex; flex-wrap: wrap; gap: 0.35rem 1rem;
@@ -240,10 +270,11 @@ canvas { display: block; width: 100%; touch-action: none; }
   margin: 1rem 0;
 }
 .ctrl { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
-.ctrl > label {
+.ctrl > label, .ctrl > .label-spacer {
   font-size: 0.75rem; color: var(--text-secondary);
   letter-spacing: 0.02em;
 }
+.ctrl > .label-spacer { display: block; }   /* 佔位用，對齊旁邊有 label 的欄；不是表單標籤 */
 .ctrl .val { font-family: var(--mono); color: var(--text-primary); }
 select, input[type="number"] {
   font-family: inherit; font-size: 0.9rem;
@@ -292,9 +323,9 @@ table.data tbody tr:hover { background: var(--accent-soft); }
   padding: 0.05rem 0.45rem; border-radius: 999px;
   border: 1px solid currentColor; white-space: nowrap;
 }
-.tag.ok { color: var(--good); }
-.tag.warn { color: var(--warning); }
-.tag.bad { color: var(--critical); }
+.tag.ok { color: var(--good-ink); }
+.tag.warn { color: var(--warning-ink); }
+.tag.bad { color: var(--critical-ink); }
 
 /* ------------------------------------------------------------------ misc */
 .kv { display: grid; grid-template-columns: max-content 1fr; gap: 0.15rem 0.9rem; font-size: 0.88rem; }

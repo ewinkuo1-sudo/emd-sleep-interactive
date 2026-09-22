@@ -5,10 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>睡眠應用：IMF 與睡眠分期頻段 — EMD × 睡眠訊號互動教學</title>
 <meta name="description" content="把 EMD 拆出的 IMF 對應到睡眠分期的 EEG 頻段（delta、theta、alpha、紡錘波、K-複合波），並實際比較固定頻帶濾波與 EMD 自適應分解的差別。">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M2 16c4-12 8-12 12 0s8 12 12 0' fill='none' stroke='%232a78d6' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="css/style.css">
 <script src="js/site.js"></script>
 </head>
 <body>
+<noscript><p class="noscript">這個網站的每一張圖都是瀏覽器即時算出來的，需要開啟 JavaScript 才能顯示導覽列、圖表與互動控制。</p></noscript>
 <main>
 
   <h1>睡眠應用：為什麼 EMD 適合睡眠訊號</h1>
@@ -75,8 +77,8 @@
       </select>
     </div>
     <div class="ctrl">
-      <label for="viewSel">顯示方式</label>
-      <div class="seg" id="viewSel" role="group" aria-label="切換顯示方式">
+      <span class="label-spacer" id="viewSelLabel">顯示方式</span>
+      <div class="seg" id="viewSel" role="group" aria-labelledby="viewSelLabel">
         <button type="button" data-v="both" aria-pressed="true">並排對照</button>
         <button type="button" data-v="filt" aria-pressed="false">只看固定濾波</button>
         <button type="button" data-v="emd" aria-pressed="false">只看 EMD</button>

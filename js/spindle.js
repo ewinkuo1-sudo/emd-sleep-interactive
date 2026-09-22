@@ -45,7 +45,8 @@
   /**
    * detect(signal, fs, opts)
    * opts: { band=[11,16], minDur=0.5, maxDur=3.0, thresholdK=1.5,
-   *         smoothSec=0.25, gapSec=0.15, maxImf=8 }
+   *         smoothSec=0.25, gapSec=0.15, maxImf=8,
+   *         decomposition }   ← 已算好的 EMD.emd() 結果；有給就不重算
    * 回傳 {
    *   imfIndex, imf, amplitude, frequency, threshold,
    *   events:[{ t0, t1, dur, peakAmp, meanFreq }],
@@ -61,7 +62,8 @@
     var K = opts.thresholdK === undefined ? 1.5 : opts.thresholdK;
     var smoothSec = opts.smoothSec === undefined ? 0.25 : opts.smoothSec;
 
-    var res = EMD.emd(signal, { maxImf: opts.maxImf || 8, sdThreshold: 0.2, maxIter: 100 });
+    var res = opts.decomposition ||
+      EMD.emd(signal, { maxImf: opts.maxImf || 8, sdThreshold: 0.2, maxIter: 100 });
     var n = signal.length;
 
     // ---- 挑選紡錘波所在的 IMF：算「瞬時頻率落在帶內的能量佔該層總能量的比例」

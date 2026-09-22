@@ -57,9 +57,22 @@
     }
   }
 
+  /** 把高頻的 input 事件合併成一次重算：先等一個動畫幀，且距上次觸發至少 ms 毫秒。 */
+  function debounce(fn, ms) {
+    var timer = null;
+    return function () {
+      clearTimeout(timer);
+      timer = setTimeout(function () { requestAnimationFrame(fn); }, ms);
+    };
+  }
+
   function loadSignal() {
     var key = ui.sigSel.value;
+    var wasHidden = el('drawPanel').hidden;
     el('drawPanel').hidden = (key !== 'draw');
+    // 手繪面板一開始是 hidden，畫布當時的 clientWidth 是 0，只能用假寬度初始化；
+    // 真正顯示出來時要用實際寬度重畫一次，否則會被橫向拉伸、線條模糊。
+    if (key === 'draw' && wasHidden && state.redrawDraw) state.redrawDraw();
     var sig = buildSignal(key);
     state.sig = sig;
     resetSifting();
@@ -138,7 +151,7 @@
   function stopPlay() {
     if (state.playing) { clearInterval(state.playing); state.playing = null; }
     var b = el('btnPlay');
-    if (b) b.textContent = '自動播放 ⏵⏵';
+    if (b) b.textContent = '自動播放 ▶▶';
   }
 
   function togglePlay() {
@@ -453,10 +466,13 @@
       drawing = true; cv.setPointerCapture(e.pointerId); add(e); e.preventDefault();
     });
     cv.addEventListener('pointermove', function (e) { if (drawing) add(e); });
-    cv.addEventListener('pointerup', function () {
+    function endStroke() {
+      if (!drawing) return;
       drawing = false;
       if (state.drawPoints.length > 3) loadSignal();
-    });
+    }
+    cv.addEventListener('pointerup', endStroke);
+    cv.addEventListener('pointercancel', endStroke);   // 觸控被系統手勢打斷時也要收尾，否則 drawing 卡在 true
     el('drawClear').addEventListener('click', function () {
       state.drawPoints = []; redraw();
       if (ui.sigSel.value === 'draw') loadSignal();
@@ -468,16 +484,18 @@
 
   // ---------------------------------------------------------------- 綁定
   ui.sigSel.addEventListener('change', loadSignal);
+  // 數字即時更新；完整 EMD + Hilbert 譜 + 表格這種重活等手停下來再算一次
+  var rerenderAll = debounce(function () { renderSift(); renderFull(); }, 90);
   [['sdT', 'sdTv', 2], ['maxIt', 'maxItv', 0], ['maxImf', 'maxImfv', 0]].forEach(function (p) {
     ui[p[0]].addEventListener('input', function () {
       ui[p[1]].textContent = parseFloat(ui[p[0]].value).toFixed(p[2]);
-      renderSift();
-      renderFull();
+      rerenderAll();
     });
   });
 
+  var rerenderSift = debounce(renderSift, 30);
   ['winW', 'winS'].forEach(function (id) {
-    el(id).addEventListener('input', renderSift);
+    el(id).addEventListener('input', rerenderSift);
   });
 
   el('btnStep').addEventListener('click', function () { stopPlay(); stepOnce(); });

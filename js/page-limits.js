@@ -159,8 +159,10 @@
   function scheduleSweep(aRatio) {
     var key = aRatio.toFixed(2);
     var host = el('resSweep');
-    if (sweepCache[key]) { host.innerHTML = sweepCache[key]; return; }
+    // 不論快取有沒有命中，先前排定的計時器都要取消——否則它稍後醒來，
+    // 會把「別的振幅比」的掃描表寫進現在這張卡
     clearTimeout(sweepTimer);
+    if (sweepCache[key]) { host.innerHTML = sweepCache[key]; return; }
     sweepTimer = setTimeout(function () {
       var html = sweepTable(aRatio);
       sweepCache[key] = html;
@@ -359,10 +361,12 @@
   function scheduleStopSweep() {
     var key = el('sdSignal').value;
     var host = el('sdSweep');
+    clearTimeout(stopSweepTimer);   // 快取命中也要取消舊計時器，理由同 scheduleSweep
     if (stopSweepCache[key]) { host.innerHTML = stopSweepCache[key]; return; }
     host.innerHTML = '<p style="color:var(--text-muted)">掃描計算中…</p>';
-    clearTimeout(stopSweepTimer);
     stopSweepTimer = setTimeout(function () {
+      // 只在使用者仍停在同一個訊號時才寫回，且快取 key 用排程當下的值，不重新讀 select
+      if (el('sdSignal').value !== key) return;
       var html = stopSweepTable();
       stopSweepCache[key] = html;
       var h = el('sdSweep');
@@ -475,7 +479,7 @@
       // IMF 1 在叢發之外的殘留能量（越小代表 mode mixing 越輕）
       function outsideBurstRms(imf) {
         var s = 0, c = 0;
-        var b0 = Math.floor(n * 0.35), b1 = Math.floor(n * 0.45);
+        var b0 = sig.burst.i0, b1 = sig.burst.i1;   // 叢發區間由產生器回報，不在這裡手抄
         for (var i = 0; i < n; i++) {
           if (i >= b0 && i < b1) continue;
           s += imf[i] * imf[i]; c++;

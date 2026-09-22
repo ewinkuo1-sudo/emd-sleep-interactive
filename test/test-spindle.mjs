@@ -19,14 +19,14 @@ function check(name, ok, detail) {
   else { fail++; console.log(`  ❌ ${name}${detail ? '  — ' + detail : ''}`); }
 }
 
-const TRUTH = [
-  { t0: 2.0, t1: 3.0, f: 13.5 },
-  { t0: 6.4, t1: 7.3, f: 12.5 }
-];
 function overlaps(ev, g) { return ev.t1 > g.t0 - 0.35 && ev.t0 < g.t1 + 0.35; }
 
 console.log('\n[N2 紡錘波偵測]');
 const sig = Signals.sleepEEG('N2', { fs: 100, n: 1000 });
+// 真值直接讀產生器帶出來的 events，改訊號時測試不會靜默失效
+const TRUTH = sig.events;
+check('產生器回報了 2 個紡錘波真值', TRUTH.length === 2,
+  TRUTH.map(g => `${g.t0.toFixed(1)}–${g.t1.toFixed(1)} s @ ${g.f} Hz`).join('、'));
 const r = Spindle.detect(sig.x, sig.fs, { thresholdK: 1.6 });
 
 console.log(`  選中 IMF ${r.imfIndex + 1}（帶內能量最大）`);

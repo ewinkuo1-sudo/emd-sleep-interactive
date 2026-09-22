@@ -415,12 +415,20 @@
   // ------------------------------------------------------------- 對外 API
 
   /** 建立 / 更新一張線圖。回傳 handle，可 handle.update(newSpec)。 */
+  /** 每登錄一批新圖就清掉已卸離的舊圖，讓登錄表大小跟頁面上實際的圖數同量級。 */
+  function register(rec) {
+    if (registry.length >= 64 && registry.length % 16 === 0) {
+      registry = registry.filter(function (r) { return r.cv.isConnected; });
+    }
+    registry.push(rec);
+  }
+
   function line(cv, spec) {
     var rec = cv.__plot;
     if (!rec) {
       rec = { cv: cv, kind: 'line', spec: spec, geom: null, tip: null };
       cv.__plot = rec;
-      registry.push(rec);
+      register(rec);
       attachHover(rec);
     }
     rec.kind = 'line';
@@ -434,7 +442,7 @@
     if (!rec) {
       rec = { cv: cv, kind: 'hilbert', spec: spec, geom: null, tip: null };
       cv.__plot = rec;
-      registry.push(rec);
+      register(rec);
     }
     rec.kind = 'hilbert';
     rec.spec = spec;
@@ -548,8 +556,10 @@
 
   /** 重繪所有已註冊的圖（主題切換、視窗縮放時呼叫）。 */
   function redrawAll() {
+    // 頁面用 innerHTML='' 重建圖表時，舊 canvas 會卸離；順手把它們從登錄表移掉，
+    // 否則拖一次滑桿就會累積成千張離線 canvas（含點陣圖）不被回收。
+    registry = registry.filter(function (rec) { return rec.cv.isConnected; });
     registry.forEach(function (rec) {
-      if (!rec.cv.isConnected) return;
       if (rec.kind === 'line') rec.geom = draw(rec.cv, rec.spec);
       else rec.geom = drawHilbert(rec.cv, rec.spec);
     });
