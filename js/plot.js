@@ -121,9 +121,14 @@
     // ---- 格線（弱化）
     g.save();
     g.strokeStyle = gridC; g.lineWidth = 1;
-    var yStep = niceStep(yr[1] - yr[0], spec.yTicks || 4);
-    var yTicks = [];
-    for (var yv = Math.ceil(yr[0] / yStep) * yStep; yv <= yr[1] + 1e-9; yv += yStep) yTicks.push(yv);
+    // 矮面板（IMF 堆疊）若標籤會重疊（每個約 14px），逐步減少刻度數
+    var yStep, yTicks;
+    for (var yTarget = spec.yTicks || 4; yTarget >= 2; yTarget--) {
+      yStep = niceStep(yr[1] - yr[0], yTarget);
+      yTicks = [];
+      for (var yv = Math.ceil(yr[0] / yStep) * yStep; yv <= yr[1] + 1e-9; yv += yStep) yTicks.push(yv);
+      if (yTicks.length * 14 <= H || yTicks.length <= 2) break;
+    }
     yTicks.forEach(function (v) {
       var y = Math.round(sy(v)) + 0.5;
       g.beginPath(); g.moveTo(padL, y); g.lineTo(padL + W, y); g.stroke();
